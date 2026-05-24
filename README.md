@@ -383,6 +383,70 @@ Kibana is your ad-hoc data exploration tool. Follow these exact steps:
 
 ---
 
+## Exploring Data in Falco UI (Click-by-Click)
+
+Falcosidekick UI runs on **port 2802** and provides a real-time web interface for viewing Falco security alerts as they arrive. No Elasticsearch knowledge needed.
+
+### Step 1: Open Falco UI
+
+1. Open your browser
+2. Go to **http://localhost:2802**
+3. You should see the Falcosidekick UI dashboard with:
+   - A summary stats bar at the top (total events, last events, etc.)
+   - A real-time event feed below
+
+### Step 2: Understand the Dashboard Layout
+
+When you first open the UI, you see:
+
+| Section | Location | What It Shows |
+|---------|----------|---------------|
+| **Stats bar** | Top of page | Total events received, events per second, last event time |
+| **Event feed** | Main area | Chronological list of all Falco alerts |
+| **Priority filter** | Top-right | Filter by alert priority (Critical, Alert, Error, Warning, Notice, Info) |
+
+### Step 3: View Real-Time Events
+
+1. The event feed updates automatically as new Falco alerts arrive
+2. Each event card shows:
+   - **Rule name** — Which Falco rule triggered (e.g., "Cgroup Release Agent Escape")
+   - **Priority** — Color-coded badge (red=Critical, yellow=Alert, etc.)
+   - **Timestamp** — When the event was detected
+   - **Output** — Brief description of what happened
+   - **Tags** — Container, MITRE ATT&CK tags if available
+
+### Step 4: Click an Event for Details
+
+1. Click on any event card in the feed
+2. A detail panel opens showing the full event payload including:
+   - **Rule** — The exact Falco rule definition
+   - **Priority** — Priority level
+   - **Time** — Precise timestamp
+   - **Output fields** — Raw syscall data (process name, file descriptors, system call arguments, container ID)
+   - **Tags** — All attached metadata tags
+
+### Step 5: Filter by Priority
+
+1. In the top-right corner, find the priority dropdown
+2. Click it and select a priority level (e.g., **"Critical"**)
+3. The event feed instantly filters to show only Critical alerts
+4. To clear the filter, select **"All"** from the same dropdown
+
+### Step 6: Check Event Frequency
+
+1. Look at the stats bar at the top
+2. **"Events per second"** shows the current rate of incoming alerts
+3. **"Total events"** shows the cumulative count since the UI started
+4. If you re-run the attacker (`docker compose up attacker`), watch the counter increase in real-time
+
+### Step 7: Use with the FalcoHive Dashboard
+
+The Falco UI is complementary to the FalcoHive dashboard:
+- Use **Falco UI (port 2802)** for raw, real-time event monitoring
+- Use **FalcoHive Dashboard (port 3000)** for AI-powered analysis, risk scoring, CVE/MITRE mapping, and remediation
+
+---
+
 ## Project Structure
 
 ```
