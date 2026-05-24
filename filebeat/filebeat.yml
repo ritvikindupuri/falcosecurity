@@ -1,0 +1,17 @@
+filebeat.inputs:
+- type: container
+  paths:
+    - /var/lib/docker/containers/*/*.log
+  processors:
+    - add_docker_metadata:
+        host: "unix:///var/run/docker.sock"
+
+output.elasticsearch:
+  hosts: ["elasticsearch:9200"]
+  index: "docker-logs-%{+yyyy.MM.dd}"
+  allow_older_versions: true
+
+setup.ilm.enabled: false
+setup.template.enabled: false
+
+logging.level: info

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FalcoHive | Container Security Dashboard</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header>
+<div><h1>Falco<span>Hive</span></h1></div>
+<div class="flex-center">
+<span class="header-badge">Falco Active</span>
+<span style="font-size:12px;color:#8b949e" id="status-text">Connected</span>
+<button class="btn-clear" onclick="clearSession()" id="btn-clear" title="Delete all events, analyses, and remediations">Clear Session</button>
+</div>
+</header>
+<div class="container">
+
+<div class="stats-row section-hidden" id="stats-row">
+<div class="stat-card"><h3>Falco Events</h3><div class="value info" id="stat-events">0</div></div>
+<div class="stat-card"><h3>Analyzed</h3><div class="value info" id="stat-analyzed">0</div></div>
+<div class="stat-card"><h3>Critical Risks</h3><div class="value critical" id="stat-critical">0</div></div>
+<div class="stat-card"><h3>Remediations</h3><div class="value info" id="stat-remediations">0</div></div>
+</div>
+
+<div class="card" id="orchestration-card">
+<div class="card-header">
+<h2>AI Orchestration Pipeline</h2>
+<div class="flex">
+<button class="btn" onclick="startPipeline()" id="btn-pipeline">Run Full Pipeline</button>
+<button class="btn secondary" onclick="refreshOrchestration()">Refresh Status</button>
+</div>
+</div>
+<div class="card-body" id="orchestration-body">
+<div class="pipeline-flow" id="pipeline-flow">
+<div class="pipeline-phase" data-phase="setup"><div class="phase-icon">1</div><div class="phase-label">Setup</div><div class="phase-indicator pending"></div></div>
+<div class="pipeline-arrow"></div>
+<div class="pipeline-phase" data-phase="attack"><div class="phase-icon">2</div><div class="phase-label">Attack</div><div class="phase-indicator pending"></div></div>
+<div class="pipeline-arrow"></div>
+<div class="pipeline-phase" data-phase="monitor"><div class="phase-icon">3</div><div class="phase-label">Monitor</div><div class="phase-indicator pending"></div></div>
+<div class="pipeline-arrow"></div>
+<div class="pipeline-phase" data-phase="analyze"><div class="phase-icon">4</div><div class="phase-label">Analyze</div><div class="phase-indicator pending"></div></div>
+<div class="pipeline-arrow"></div>
+<div class="pipeline-phase" data-phase="remediate"><div class="phase-icon">5</div><div class="phase-label">Remediate</div><div class="phase-indicator pending"></div></div>
+<div class="pipeline-arrow"></div>
+<div class="pipeline-phase" data-phase="complete"><div class="phase-icon">6</div><div class="phase-label">Complete</div><div class="phase-indicator pending"></div></div>
+</div>
+<div id="orchestration-logs" class="orchestration-logs">
+<div class="empty-state">Click "Run Full Pipeline" to start AI-driven orchestration</div>
+</div>
+</div>
+</div>
+
+<div class="grid-2 section-hidden" id="grid-2">
+<div class="card">
+<div class="card-header"><h2>Falco Security Events</h2><div class="flex"><button class="btn" onclick="refreshEvents()">Refresh</button><button class="btn secondary" onclick="analyzeAll()">Analyze All</button></div></div>
+<div class="card-body" id="events-list"><div class="empty-state">Loading events...</div></div>
+</div>
+
+<div class="card">
+<div class="card-header"><h2>Attack Analysis</h2></div>
+<div class="card-body" id="analysis-list"><div class="empty-state">Select an event or click "Analyze All"</div></div>
+</div>
+</div>
+
+<div class="card" id="remediation-card" style="display:none">
+<div class="card-header"><h2>Remediation Steps</h2></div>
+<div class="card-body" id="remediation-body"></div>
+</div>
+
+</div>
+<script src="/static/app.js"></script>
+</body>
+</html>

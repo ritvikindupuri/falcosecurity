@@ -1,0 +1,171 @@
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: unique-es
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+    networks:
+      - unique-net
+    restart: unless-stopped
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.0
+    container_name: unique-kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    networks:
+      - unique-net
+    depends_on:
+      - elasticsearch
+    restart: unless-stopped
+
+  falco:
+    image: falcosecurity/falco:0.36.1
+    container_name: unique-falco
+    privileged: true
+    pid: host
+    volumes:
+      - /var/run/docker.sock:/host/var/run/docker.sock
+      - /proc:/host/proc:ro
+      - /etc:/host/etc:ro
+      - ./falco/falco.yaml:/etc/falco/falco.yaml:ro
+      - ./falco/rules:/etc/falco/rules.d:ro
+    environment:
+      - SKIP_DRIVER_LOADER=true
+    command: ["falco", "--nodriver", "-c", "/etc/falco/falco.yaml"]
+    networks:
+      - unique-net
+    restart: unless-stopped
+
+  falcosidekick:
+    image: falcosecurity/falcosidekick:2.28.0
+    container_name: unique-falcosidekick
+    volumes:
+      - ./falcosidekick/config.yaml:/etc/falcosidekick/config.yaml:ro
+    environment:
+      - ELASTICSEARCH_HOSTPORT=http://elasticsearch:9200
+      - ELASTICSEARCH_INDEX=falco-events
+      - WEBUI_URL=http://unique-falcosidekick-ui:2802
+    ports:
+      - "2801:2801"
+    networks:
+      - unique-net
+    depends_on:
+      - elasticsearch
+      - falco
+    restart: unless-stopped
+
+  falcosidekick-ui:
+    image: falcosecurity/falcosidekick-ui:2.2.0
+    container_name: unique-falcosidekick-ui
+    ports:
+      - "2802:2802"
+    environment:
+      - FALCOSIDEKICK_UI_REDIS_URL=unique-redis:6379
+      - FALCOSIDEKICK_UI_DISABLEAUTH=true
+    networks:
+      - unique-net
+    depends_on:
+      - redis
+      - falcosidekick
+    restart: unless-stopped
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.11.0
+    container_name: unique-filebeat
+    user: root
+    volumes:
+      - ./filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - ELASTICSEARCH_HOST=elasticsearch:9200
+    networks:
+      - unique-net
+    depends_on:
+      - elasticsearch
+    restart: unless-stopped
+    command: ["--strict.perms=false"]
+
+  attacker:
+    build: ./attacker
+    container_name: unique-attacker
+    privileged: true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    cap_add:
+      - SYS_ADMIN
+      - NET_ADMIN
+      - SYS_PTRACE
+      - SYS_RAWIO
+      - BPF
+      - SYS_MODULE
+      - DAC_READ_SEARCH
+    networks:
+      - unique-net
+    depends_on:
+      - falco
+    restart: "no"
+
+  target-app:
+    build: ./target
+    container_name: unique-target
+    ports:
+      - "8090:8080"
+    networks:
+      - unique-net
+    restart: unless-stopped
+
+  redis:
+    image: redis/redis-stack-server:7.2.0-v11
+    container_name: unique-redis
+    networks:
+      - unique-net
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15
+    container_name: unique-postgres
+    environment:
+      - POSTGRES_DB=safedb
+      - POSTGRES_USER=safeuser
+      - POSTGRES_PASSWORD=safepass
+    networks:
+      - unique-net
+    restart: unless-stopped
+
+  ai-agent:
+    build: ./ai-agent
+    container_name: unique-ai-agent
+    ports:
+      - "3000:3000"
+    environment:
+      - ES_HOST=http://elasticsearch:9200
+      - CLAUDE_API_KEY=${CLAUDE_API_KEY:-}
+      - CLAUDE_MODEL=claude-sonnet-4-20250514
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - .:/workspace:ro
+    networks:
+      - unique-net
+    depends_on:
+      - elasticsearch
+    restart: unless-stopped
+
+volumes:
+  es_data:
+
+networks:
+  unique-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16

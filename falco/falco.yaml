@@ -1,0 +1,32 @@
+json_output: true
+
+stdout_output:
+  enabled: true
+  json_output: true
+
+file_output:
+  enabled: true
+  filename: /var/log/falco.log
+  priority: info
+
+http_output:
+  enabled: true
+  url: http://falcosidekick:2801/
+  json_output: true
+  keep_alive: true
+
+syslog_output:
+  enabled: false
+
+rules_file:
+  - /etc/falco/falco_rules.yaml
+  - /etc/falco/rules.d
+
+syscall_event_drops:
+  threshold: 0.1
+  actions:
+    - log
+  rate: 0.05
+  max_burst: 1000
+
+syscall_buf_size_preset: 5

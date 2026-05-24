@@ -1,0 +1,48 @@
+- rule: Cgroup Release Agent Escape
+  desc: Detects cgroup release_agent manipulation for container escape (CVE-2022-0492)
+  condition: evt.type=open and proc.name in (echo, bash, cat) and fd.name contains release_agent
+  output: Cgroup release_agent escape attempt (user=%user.name command=%proc.cmdline container=%container.info)
+  priority: CRITICAL
+  tags: [container, mitre_escape_to_host]
+
+- rule: Overlay Whiteout File
+  desc: Detects creation of overlayfs whiteout files for hiding data
+  condition: evt.type=creat and fd.name contains .wh.
+  output: Overlayfs whiteout file created - possible hidden data (file=%fd.name user=%user.name)
+  priority: ALERT
+  tags: [container, mitre_defense_evasion]
+
+- rule: Userfaultfd Usage
+  desc: Detects userfaultfd syscall usage for race condition exploitation
+  condition: evt.type=userfaultfd
+  output: Userfaultfd syscall invoked - possible race condition exploit (user=%user.name pid=%proc.pid)
+  priority: ALERT
+  tags: [container, mitre_privilege_escalation]
+
+- rule: BPF Program Load
+  desc: Detects eBPF program loads which could be rootkits
+  condition: evt.type=bpf and proc.name!=bpftool
+  output: eBPF program load detected - possible rootkit (user=%user.name pid=%proc.pid command=%proc.cmdline)
+  priority: CRITICAL
+  tags: [container, mitre_rootkit]
+
+- rule: Symlink Swap for Race Condition
+  desc: Detects symlink creation to /etc or /usr patterns for TOCTOU
+  condition: evt.type=symlink and (fd.name startswith /etc or fd.name startswith /usr)
+  output: Symlink race condition setup (target=%fd.name user=%user.name)
+  priority: ALERT
+  tags: [container, mitre_execution_flow_hijacking]
+
+- rule: User Namespace Clone
+  desc: Detects creation of user namespaces via clone
+  condition: evt.type=clone and evt.arg.flags contains CLONE_NEWUSER
+  output: New user namespace created - possible privilege escalation (user=%user.name)
+  priority: NOTICE
+  tags: [container, mitre_privilege_escalation]
+
+- rule: ARP Table Manipulation
+  desc: Detects ARP cache manipulation for network MITM
+  condition: evt.type in (sendto, bind) and fd.type=ipv4 and proc.name in (python, perl, ruby) and fd.ip contains 0.0.0.0
+  output: ARP spoofing activity via raw socket (user=%user.name pid=%proc.pid comm=%proc.name)
+  priority: ALERT
+  tags: [container, mitre_adversary_in_the_middle]

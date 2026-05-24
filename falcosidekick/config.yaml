@@ -1,0 +1,15 @@
+general:
+  mutex: false
+  debug: false
+  disable: false
+  otlp:
+    enabled: false
+
+elasticsearch:
+  hostport: http://elasticsearch:9200
+  index: falco-events
+  type: _doc
+  minimumpriority: ""
+
+webui:
+  url: http://unique-falcosidekick-ui:2802
