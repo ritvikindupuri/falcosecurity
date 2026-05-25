@@ -210,6 +210,12 @@ You should see the **FalcoHive** dashboard with:
 - The pipeline flow visualization (6 phases)
 - A **"Run Full Pipeline"** button
 - A **"Clear Session"** button
+- A **Quick Access** toolbar with one-click links to all services:
+  - **FalcoHive Dashboard** (highlighted blue — you're here)
+  - **Falco UI** (port 2802 — real-time alert viewer)
+  - **Kibana** (port 5601 — data exploration)
+  - **Elasticsearch** (port 9200 — raw API)
+  - **Target App** (port 8090 — mock vulnerable web app)
 - No other data (empty initial state)
 
 ### Step 5: Stop the Lab (When You're Done)
@@ -260,11 +266,12 @@ docker compose down -v --rmi all
 ### Initial State
 When you first open the dashboard, you see only:
 - **FalcoHive** header with "Falco Active" badge and "Clear Session" button
+- **Quick Access** toolbar with one-click links to Falco UI, Kibana, Elasticsearch, and Target App
 - **AI Orchestration Pipeline** card with the 6-phase flow
 - **"Run Full Pipeline"** button
 - **"Refresh Status"** button
 
-Everything else (stats, events, analysis) is hidden until data exists.
+Everything else (stats, events, analysis) is hidden until data exists. Click any Quick Access link to open that service in a new tab.
 
 ### Running the AI Pipeline
 

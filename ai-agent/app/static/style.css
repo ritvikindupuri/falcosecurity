@@ -69,6 +69,12 @@ header h1 span { color: #a371f7; }
 .btn-clear { background: #da3633; color: #fff; border: none; padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; margin-left: 8px; }
 .section-hidden { display: none !important; }
 .btn-clear:hover { background: #f85149; }
+
+.service-links { background: #1c2128; border-bottom: 1px solid #30363d; padding: 8px 30px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.service-label { font-size: 11px; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; margin-right: 4px; }
+.service-btn { display: inline-block; padding: 4px 14px; border-radius: 12px; font-size: 12px; font-weight: 500; text-decoration: none; background: #21262d; border: 1px solid #30363d; color: #8b949e; transition: all 0.15s; }
+.service-btn:hover { background: #30363d; color: #e1e4e8; border-color: #58a6ff; }
+.service-btn.active { background: #1a2d3d; border-color: #58a6ff; color: #58a6ff; }
 .status-running { color: #d29922; }
 @media (max-width: 900px) { .grid-2 { grid-template-columns: 1fr; } }
 
