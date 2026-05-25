@@ -97,6 +97,7 @@ services:
 
   attacker:
     build: ./attacker
+    image: attacker:latest
     container_name: unique-attacker
     privileged: true
     volumes:
@@ -111,8 +112,6 @@ services:
       - DAC_READ_SEARCH
     networks:
       - unique-net
-    depends_on:
-      - falco
     restart: "no"
 
   target-app:

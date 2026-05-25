@@ -52,14 +52,17 @@ class InfraAgent:
         }
 
     async def start_services(self, services=None):
+        HOST_MANAGED = ["falco", "falcosidekick", "filebeat"]
         if not services or not services[0]:
-            services = ["elasticsearch", "kibana", "falco", "falcosidekick", "falcosidekick-ui", "redis", "postgres", "target-app"]
+            services = ["elasticsearch", "kibana", "falcosidekick-ui", "redis", "postgres", "target-app"]
         log.info(f"Starting services: {services}")
+        log.info(f"Services that must be started from host (skipped): {HOST_MANAGED}")
         result = await self._run_compose("up", "-d", *services)
         return {
-            "summary": f"Started {len(services)} services",
+            "summary": f"Started {len(services)} services (falco/falcosidekick/filebeat must be started from host via ./run.sh)",
             "success": result["returncode"] == 0,
             "services": services,
+            "host_managed": HOST_MANAGED,
             "details": result,
         }
 
