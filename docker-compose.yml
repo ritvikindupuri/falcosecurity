@@ -143,7 +143,7 @@ services:
     build: ./ai-agent
     container_name: unique-ai-agent
     ports:
-      - "3000:3000"
+      - "${AI_AGENT_PORT:-3001}:3000"
     environment:
       - ES_HOST=http://elasticsearch:9200
       - CLAUDE_API_KEY=${CLAUDE_API_KEY:-}

@@ -167,7 +167,7 @@ EOF
 ./run.sh
 ```
 
-Wait for **"Dashboard ready at http://localhost:3000"**, then open that URL in your browser and click **Run Full Pipeline**.
+Wait for **"Dashboard ready"** (the output will show the actual port), then open that URL in your browser and click **Run Full Pipeline**.
 
 > ⏱ **First run takes 5-10 minutes** — it downloads Elasticsearch, Falco, and other Docker images. Subsequent runs are much faster.
 
@@ -226,7 +226,7 @@ Run the startup script to build all Docker images and start the dashboard:
 
 **What this does:**
 1. Builds all Docker images (custom Falco with configs baked in, Falcosidekick, Filebeat, target app, attacker, AI agent)
-2. Starts only the **AI agent** container (dashboard at http://localhost:3000)
+2. Starts only the **AI agent** container (dashboard at http://localhost:3001)
 3. Waits for the dashboard to be ready
 
 **Nothing else starts yet.** All infrastructure (Elasticsearch, Kibana, Falco, etc.) remains idle. Data only appears when you run the pipeline.
@@ -235,8 +235,8 @@ Run the startup script to build all Docker images and start the dashboard:
 
 Two ways to trigger the full pipeline:
 
-1. **Click "Run Full Pipeline"** on the dashboard at http://localhost:3000
-2. **Or via command line:** `curl -X POST http://localhost:3000/api/orchestrate`
+1. **Click "Run Full Pipeline"** on the dashboard at http://localhost:3001
+2. **Or via command line:** `curl -X POST http://localhost:3001/api/orchestrate`
 
 The pipeline automatically:
 1. **Starts all infrastructure** — Elasticsearch, Kibana, Falco, Falcosidekick, Redis, Postgres, target app
@@ -287,7 +287,7 @@ Open http://localhost:8090 during step 2 to watch the attack impact live.
 Open your web browser and go to:
 
 ```
-http://localhost:3000
+http://localhost:3001
 ```
 
 You should see the **FalcoHive** dashboard with:
@@ -361,7 +361,7 @@ docker compose down -v --rmi all
 ```
 
 **Option D — Clear data from the dashboard only:**
-1. Go to http://localhost:3000
+1. Go to http://localhost:3001
 2. Click the red **"Clear Session"** button in the header
 3. Confirms with a dialog — this deletes all Falco events, analyses, and remediations from Elasticsearch
 4. The dashboard resets to the empty initial state
@@ -456,10 +456,10 @@ A confirmation dialog prevents accidental clears.
 Instead of clicking the dashboard button, you can trigger the pipeline from the command line:
 
 ```bash
-curl -X POST http://localhost:3000/api/orchestrate
+curl -X POST http://localhost:3001/api/orchestrate
 ```
 
-Watch progress at http://localhost:3000.
+Watch progress at http://localhost:3001.
 
 ---
 
@@ -702,16 +702,15 @@ docker compose up attacker
 ### Port conflicts
 If ports 3000, 5601, 9200, 8090 are in use, edit the `ports:` section in `docker-compose.yml` to change host-side mappings.
 
-### "address already in use" on port 3000 during ./run.sh
-This means something else is already using port 3000 on your host. First, stop any leftover container:
-```bash
-docker stop unique-ai-agent 2>/dev/null; docker rm unique-ai-agent 2>/dev/null
+### "address already in use" when starting the dashboard
+The ai-agent dashboard defaults to port **3001** (configurable via `AI_AGENT_PORT` in `.env`). If that port is also in use, change it in `.env`:
 ```
-Then rerun `./run.sh`. If it still fails, find what's using port 3000:
-```bash
-sudo netstat -tlnp | grep :3000
+AI_AGENT_PORT=3002
 ```
-Kill the process with `sudo kill <PID>`. On Windows/WSL, check if a Windows app is bound to port 3000 by running `netstat -aon | findstr :3000` in PowerShell and killing the process by PID.
+Then rerun `./run.sh`. To find what's currently using a port on WSL/Windows:
+```bash
+sudo apt install -y net-tools && sudo netstat -tlnp | grep :3001
+```
 
 ---
 
