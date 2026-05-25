@@ -215,13 +215,15 @@ You should see the **FalcoHive** dashboard with:
   - **Falco UI** (port 2802 — real-time alert viewer)
   - **Kibana** (port 5601 — data exploration)
   - **Elasticsearch** (port 9200 — raw API)
-   - **Target App** (port 8090 — mock vulnerable web app — see below)
+   - **Target App** (port 8090 — live attack monitor — see below)
 
-   > **About the Target App:** This is a mock JSON API (not a web page) that simulates a vulnerable backend service. The attacker container targets it during the pipeline. Available endpoints:
-   > 
+   > **About the Target App:** This is a mock vulnerable JSON API that simulates a backend service. When you open http://localhost:8090 in your browser, you'll see a **live attack monitoring dashboard** that shows every request the attacker makes in real-time — colored by method (green=GET, yellow=POST) with attack tags in red.
+   >
+   > **API Endpoints (what the attacker targets):**
    > | Endpoint | Method | Purpose |
    > |----------|--------|---------|
-   > | `/` | GET | Server status check |
+   > | `/` | GET | Live HTML attack monitor dashboard |
+   > | `/api/requests` | GET | JSON log of all recent requests |
    > | `/health` | GET | Health check |
    > | `/config` | GET | **Mock credentials & secrets** (attacker target) |
    > | `/internal` | GET | **Mock sensitive internal data** |
@@ -229,8 +231,8 @@ You should see the **FalcoHive** dashboard with:
    > | `/admin` | POST | Returns admin access grant |
    > | `/upload` | POST | Mock file upload endpoint |
    > | `/api/internal` | POST | Mock internal API data |
-   > 
-   > Open http://localhost:8090 in your browser to see the base status JSON. Try the other endpoints with `curl` or any API client to explore further.
+   >
+   > During the pipeline, the attacker hits each endpoint and you can watch the live feed at http://localhost:8090 update every 1.5 seconds.
 
 - No other data (empty initial state)
 
