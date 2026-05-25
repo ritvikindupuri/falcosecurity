@@ -245,13 +245,18 @@ The startup script supports **two modes** — choose the one that fits what you 
 >
 > Each attack has three phases (PROBE → EXPLOIT → VERIFY) visible in the **Attack Timeline** feed. Service cards transition from green (OK) → yellow (probing) → red (compromised). The header banner flips from "OPERATIONAL" to "UNDER ATTACK" to "COMPROMISED".
 
-> **Note:** Before any pipeline run, all services are empty:
+> **Note:** Before and between pipeline runs, all services are empty:
 > - **Target App** (port 8090) — shows all-green service cards with "No attacks detected"
 > - **Falco** — running but has no attack events to detect
 > - **Elasticsearch / Kibana** — zero security events indexed
 > - **Dashboard** (port 3000) — only shows "Run Full Pipeline" and "Clear Session" buttons
 >
-> Data only starts flowing after you click **"Run Full Pipeline"** (AI mode) or run `./run.sh` (standard mode). This makes it easy to see the full lifecycle: clean state → attacks trigger → Falco detects → events land in ES → AI analyzes → remediation.
+> Clicking **"Run Full Pipeline"** (or the "Clear Session" button) automatically wipes everything:
+> 1. Resets the **Target App** — cards revert to green, timeline clears
+> 2. Deletes all **Elasticsearch indices** — Falco events, analyses, remediations all removed
+> 3. Resets the **Dashboard** — hides all stats, events, and analysis cards
+>
+> Then the pipeline begins fresh: attacker runs → Falco detects → events land in clean ES → target app populates in real-time. This ensures you see the complete lifecycle from a true zero-data state every time.
 >
 > **First run takes 5-10 minutes** as it downloads Docker images (Elasticsearch, Falco, etc.) and builds custom images. Subsequent runs are faster.
 
