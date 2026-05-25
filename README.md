@@ -212,6 +212,47 @@ You should see the **FalcoHive** dashboard with:
 - A **"Clear Session"** button
 - No other data (empty initial state)
 
+### Step 5: Stop the Lab (When You're Done)
+
+When you're finished, stop everything and clean up resources:
+
+**Option A — Stop containers (keep data for later use):**
+```bash
+# Stop all containers without removing them
+docker compose stop
+
+# Restart later with:
+docker compose start
+```
+
+**Option B — Stop and remove containers (keep images, delete all data):**
+```bash
+# Stop everything and remove containers + networks
+docker compose down
+
+# This DELETES all Falco events, analyses, and remediations
+# Run Step 3 again to start fresh
+```
+
+**Option C — Full nuclear cleanup (remove everything):**
+```bash
+# Stop everything, remove containers, networks, volumes, AND images
+docker compose down -v --rmi all
+
+# The -v flag deletes the Elasticsearch data volume
+# The --rmi all flag deletes all built/pulled images
+# After this, run Step 3 again from scratch
+```
+
+**Option D — Clear data from the dashboard only:**
+1. Go to http://localhost:3000
+2. Click the red **"Clear Session"** button in the header
+3. Confirms with a dialog — this deletes all Falco events, analyses, and remediations from Elasticsearch
+4. The dashboard resets to the empty initial state
+5. Run "Run Full Pipeline" or `docker compose up attacker` to re-generate events
+
+> **Note:** `docker compose down` without `-v` preserves your Elasticsearch data volume so events/analyses persist. Add `-v` only if you want to wipe everything.
+
 ---
 
 ## How to Use the Dashboard
