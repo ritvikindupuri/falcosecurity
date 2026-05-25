@@ -245,7 +245,15 @@ The startup script supports **two modes** — choose the one that fits what you 
 >
 > Each attack has three phases (PROBE → EXPLOIT → VERIFY) visible in the **Attack Timeline** feed. Service cards transition from green (OK) → yellow (probing) → red (compromised). The header banner flips from "OPERATIONAL" to "UNDER ATTACK" to "COMPROMISED".
 
-**First run takes 5-10 minutes** as it downloads Docker images (Elasticsearch, Falco, etc.) and builds custom images. Subsequent runs are faster.
+> **Note:** Before any pipeline run, all services are empty:
+> - **Target App** (port 8090) — shows all-green service cards with "No attacks detected"
+> - **Falco** — running but has no attack events to detect
+> - **Elasticsearch / Kibana** — zero security events indexed
+> - **Dashboard** (port 3000) — only shows "Run Full Pipeline" and "Clear Session" buttons
+>
+> Data only starts flowing after you click **"Run Full Pipeline"** (AI mode) or run `./run.sh` (standard mode). This makes it easy to see the full lifecycle: clean state → attacks trigger → Falco detects → events land in ES → AI analyzes → remediation.
+>
+> **First run takes 5-10 minutes** as it downloads Docker images (Elasticsearch, Falco, etc.) and builds custom images. Subsequent runs are faster.
 
 ### Step 4: Access the Dashboard
 
@@ -289,7 +297,7 @@ You should see the **FalcoHive** dashboard with:
    >
    > During the pipeline, the attacker hits each endpoint and the app's service cards change color and show impact text in real-time at http://localhost:8090 (auto-refreshes every 1.5 seconds). Old data is automatically cleared when a new pipeline run starts.
 
-- No other data (empty initial state)
+- **Everything is empty** — no Falco events in Elasticsearch, no analyses, no target app data. All data only appears **after** you hit "Run Full Pipeline" (or run `./run.sh` in standard mode). Until then, Falco is running but has no attack events to detect, and Elasticsearch has zero security events indexed.
 
 ### Step 5: Stop the Lab (When You're Done)
 
