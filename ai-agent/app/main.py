@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from elasticsearch import Elasticsearch
 from dotenv import load_dotenv
+import redis as redis_lib
 
 from app.analysis_agent import AnalysisAgent
 from app.remediation_agent import RemediationAgent
@@ -204,8 +205,18 @@ async def clear_all():
                 cleared.append(name)
         except Exception as e:
             log.error(f"Failed to clear index {idx}: {e}")
-    log.info(f"Cleared {len(cleared)} indices: {cleared}")
-    return {"status": "cleared", "indices": cleared}
+    redis_cleared = 0
+    try:
+        r = redis_lib.Redis(host="unique-redis", port=6379, db=0, socket_connect_timeout=3)
+        keys = r.keys("event:*")
+        if keys:
+            r.delete(*keys)
+            redis_cleared = len(keys)
+        r.close()
+    except Exception as e:
+        log.error(f"Failed to clear Redis: {e}")
+    log.info(f"Cleared {len(cleared)} ES indices + {redis_cleared} Redis keys")
+    return {"status": "cleared", "indices": cleared, "redis_keys_cleared": redis_cleared}
 
 @app.post("/api/orchestrate")
 async def start_orchestration(req: OrchestrateRequest, background_tasks: BackgroundTasks):
