@@ -95,7 +95,7 @@ flowchart TB
 | **Backend API** | Python 3.12 + FastAPI |
 | **Frontend** | Vanilla HTML/CSS/JS |
 | **Container Runtime** | Docker + Docker Compose v2 |
-| **Target App** | Python HTTP server (mock vulnerable endpoints) |
+| **Target App** | Python HTTP server with live visual mock application + attack impact dashboard |
 | **Attacker** | Python (6 attack scenarios using scapy, ctypes, etc.) |
 
 ---
@@ -204,7 +204,7 @@ The startup script supports **two modes** — choose the one that fits what you 
 - **Zero Claude API usage** — no API key needed, no AI calls made
 - All 6 attacks run automatically and hit the target app live
 - Falco detects each attack and sends events to Elasticsearch
-- Open http://localhost:8090 during the attack run to watch each attack hit the target app in **real-time** (auto-refreshes every 1.5 seconds)
+- Open http://localhost:8090 during the attack run to watch each attack compromise the target app's service cards in **real-time** (auto-refreshes every 1.5 seconds)
 - After attacks finish, explore the Falco events in the dashboard at http://localhost:3000
 
 #### Mode B — AI Mode (Claude-Powered Orchestration)
@@ -227,23 +227,23 @@ The startup script supports **two modes** — choose the one that fits what you 
 **Key points:**
 - **Claude API is required** — set `CLAUDE_API_KEY` in `.env`
 - You can also trigger the same pipeline by clicking **"Run Full Pipeline"** on the dashboard
-- During the attack phase, open http://localhost:8090 to see the live attack feed
+- During the attack phase, open http://localhost:8090 to see the live attack impact on the visual enterprise app dashboard
 
 ---
 
 > **Live Attack Feed on the Target App:**
-> When the attacker runs (in either mode), open http://localhost:8090 in your browser. The page auto-refreshes every 1.5 seconds and shows **every request the attacker makes in real-time:**
+> When the attacker runs (in either mode), open http://localhost:8090 in your browser. The page auto-refreshes every 1.5 seconds and shows a **live mock enterprise application** being attacked in real-time:
 >
-> | Attack | What it does | Seen on Target App |
-> |--------|-------------|-------------------|
-> | 1 — Cgroup Escape (CVE-2022-0492) | Steals credentials via container escape | `GET /config` → **200** with red **attack** tag |
-> | 2 — OverlayFS Tamper (CVE-2021-31433) | Hides malicious files | `GET /internal` → **200** with red **attack** tag |
-> | 3 — io_uring Bypass (CVE-2022-25362) | Privilege escalation via seccomp bypass | `POST /admin` → **200** with red **attack** tag |
-> | 4 — ARP Spoof | MITM credential interception | `POST /login` → **200** with red **attack** tag |
-> | 5 — BPF Rootkit | Kernel-level persistence | `POST /api/internal` → **200** with red **attack** tag |
-> | 6 — Userfaultfd (CVE-2022-2588) | Memory corruption race condition | `POST /upload` → **200** with red **attack** tag |
+> | Attack | What it does | You'll see on the Target App |
+> |--------|-------------|---------------------------|
+> | 1 — Cgroup Escape (CVE-2022-0492) | Steals credentials via container escape | **Database Config** card → `COMPROMISED` (red), timeline: "CREDENTIALS EXPOSED" |
+> | 2 — OverlayFS Tamper (CVE-2021-31433) | Hides malicious files | **Internal API** card → `COMPROMISED` (red), timeline: "DATA EXFILTRATED" |
+> | 3 — io_uring Bypass (CVE-2022-25362) | Privilege escalation via seccomp bypass | **Admin Portal** card → `COMPROMISED` (red), timeline: "UNAUTHORIZED ACCESS" |
+> | 4 — ARP Spoof | MITM credential interception | **User Login** card → `COMPROMISED` (red), timeline: "CREDENTIALS CAPTURED" |
+> | 5 — BPF Rootkit | Kernel-level persistence | **Internal API** card → `COMPROMISED` (red), timeline: "DATA EXFILTRATED" |
+> | 6 — Userfaultfd (CVE-2022-2588) | Memory corruption race condition | **File Upload** card → `COMPROMISED` (red), timeline: "FILES CORRUPTED" |
 >
-> Each row is color-coded: green = GET, yellow = POST, red "attack" tag = sensitive endpoint being targeted. New requests flash yellow as they arrive.
+> Each attack has three phases (PROBE → EXPLOIT → VERIFY) visible in the **Attack Timeline** feed. Service cards transition from green (OK) → yellow (probing) → red (compromised). The header banner flips from "OPERATIONAL" to "UNDER ATTACK" to "COMPROMISED".
 
 **First run takes 5-10 minutes** as it downloads Docker images (Elasticsearch, Falco, etc.) and builds custom images. Subsequent runs are faster.
 
@@ -264,24 +264,30 @@ You should see the **FalcoHive** dashboard with:
   - **Falco UI** (port 2802 — real-time alert viewer)
   - **Kibana** (port 5601 — data exploration)
   - **Elasticsearch** (port 9200 — raw API)
-   - **Target App** (port 8090 — live attack monitor — see below)
+   - **Target App** (port 8090 — live visual attack impact dashboard — see below)
 
-   > **About the Target App:** This is a mock vulnerable JSON API that simulates a backend service. When you open http://localhost:8090 in your browser, you'll see a **live attack monitoring dashboard** that shows every request the attacker makes in real-time — colored by method (green=GET, yellow=POST) with attack tags in red.
+   > **About the Target App:** This is a live **mock enterprise application** ("TargetCorp Internal Portal") that visually demonstrates how each attack compromises different parts of the system. Open http://localhost:8090 to see:
+   > - **6 Service Cards** — Database Config, Admin Portal, User Login, Internal API, File Upload, System Health
+   > - **Real-time color transitions** — green (OK) → yellow (probing) → red (compromised)
+   > - **Attack Timeline feed** — scrolling log of every PROBE/EXPLOIT/VERIFY event with detailed impact descriptions
+   > - **Dynamic header banner** — switches from "OPERATIONAL" to "UNDER ATTACK" to "COMPROMISED"
+   > - **Detailed request table** — shows every HTTP request with CVE/MITRE tags and phase badges
    >
    > **API Endpoints (what the attacker targets):**
    > | Endpoint | Method | Purpose |
    > |----------|--------|---------|
-   > | `/` | GET | Live HTML attack monitor dashboard |
-   > | `/api/requests` | GET | JSON log of all recent requests |
+   > | `/` | GET | Live HTML "TargetCorp Internal Portal" dashboard |
+   > | `/api/requests` | GET | JSON state: requests, component statuses, timeline |
+   > | `/api/reset` | POST | Clear all state (called automatically on pipeline start) |
    > | `/health` | GET | Health check |
-   > | `/config` | GET | **Mock credentials & secrets** (attacker target) |
-   > | `/internal` | GET | **Mock sensitive internal data** |
+   > | `/config` | POST | **Mock credentials & secrets** (attacker target) |
+   > | `/internal` | POST | **Mock sensitive internal data** |
    > | `/login` | POST | Returns fake JWT token |
    > | `/admin` | POST | Returns admin access grant |
    > | `/upload` | POST | Mock file upload endpoint |
    > | `/api/internal` | POST | Mock internal API data |
    >
-   > During the pipeline, the attacker hits each endpoint and you can watch the live feed at http://localhost:8090 update every 1.5 seconds.
+   > During the pipeline, the attacker hits each endpoint and the app's service cards change color and show impact text in real-time at http://localhost:8090 (auto-refreshes every 1.5 seconds). Old data is automatically cleared when a new pipeline run starts.
 
 - No other data (empty initial state)
 
@@ -601,7 +607,7 @@ falcosecurity/
 │
 ├── target/                       # Vulnerable Target Application
 │   ├── Dockerfile
-│   └── server.py                 # Mock web app with sensitive endpoints
+│   └── server.py                 # Mock enterprise app ("TargetCorp Internal Portal") with live attack impact dashboard
 │
 ├── falco/                        # Falco Configuration
 │   ├── falco.yaml                # Falco daemon config (JSON output, HTTP to Sidekick)
