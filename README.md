@@ -215,7 +215,23 @@ You should see the **FalcoHive** dashboard with:
   - **Falco UI** (port 2802 — real-time alert viewer)
   - **Kibana** (port 5601 — data exploration)
   - **Elasticsearch** (port 9200 — raw API)
-  - **Target App** (port 8090 — mock vulnerable web app)
+   - **Target App** (port 8090 — mock vulnerable web app — see below)
+
+   > **About the Target App:** This is a mock JSON API (not a web page) that simulates a vulnerable backend service. The attacker container targets it during the pipeline. Available endpoints:
+   > 
+   > | Endpoint | Method | Purpose |
+   > |----------|--------|---------|
+   > | `/` | GET | Server status check |
+   > | `/health` | GET | Health check |
+   > | `/config` | GET | **Mock credentials & secrets** (attacker target) |
+   > | `/internal` | GET | **Mock sensitive internal data** |
+   > | `/login` | POST | Returns fake JWT token |
+   > | `/admin` | POST | Returns admin access grant |
+   > | `/upload` | POST | Mock file upload endpoint |
+   > | `/api/internal` | POST | Mock internal API data |
+   > 
+   > Open http://localhost:8090 in your browser to see the base status JSON. Try the other endpoints with `curl` or any API client to explore further.
+
 - No other data (empty initial state)
 
 ### Step 5: Stop the Lab (When You're Done)
