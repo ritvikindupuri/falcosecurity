@@ -70,10 +70,10 @@ header h1 span { color: #a371f7; }
 .section-hidden { display: none !important; }
 .btn-clear:hover { background: #f85149; }
 
-.service-links { background: #1c2128; border-bottom: 1px solid #30363d; padding: 8px 30px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.service-label { font-size: 11px; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; margin-right: 4px; }
-.service-btn { display: inline-block; padding: 4px 14px; border-radius: 12px; font-size: 12px; font-weight: 500; text-decoration: none; background: #21262d; border: 1px solid #30363d; color: #8b949e; transition: all 0.15s; }
-.service-btn:hover { background: #30363d; color: #e1e4e8; border-color: #58a6ff; }
+.service-links { background: #131820; border-top: 1px solid #2d1b69; border-bottom: 1px solid #30363d; padding: 8px 30px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.service-label { font-size: 11px; color: #a371f7; text-transform: uppercase; letter-spacing: 0.8px; margin-right: 8px; font-weight: 600; }
+.service-btn { display: inline-flex; align-items: center; gap: 4px; padding: 5px 14px; border-radius: 14px; font-size: 12px; font-weight: 500; text-decoration: none; background: #1c2128; border: 1px solid #30363d; color: #c9d1d9; transition: all 0.15s; }
+.service-btn:hover { background: #2d1b69; color: #fff; border-color: #a371f7; }
 .service-btn.active { background: #1a2d3d; border-color: #58a6ff; color: #58a6ff; }
 .status-running { color: #d29922; }
 @media (max-width: 900px) { .grid-2 { grid-template-columns: 1fr; } }
