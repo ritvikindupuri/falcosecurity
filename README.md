@@ -102,36 +102,80 @@ flowchart TB
 
 ## Prerequisites
 
-This lab requires **real syscall monitoring** by Falco, which needs kernel-level access. Docker Desktop (Windows/macOS) runs containers in a lightweight VM that **does not** support Falco's kernel driver or eBPF probe. You must run this on a **Linux host** with full kernel access.
+> **⚠️ CRITICAL: You must run this on a Linux host (Ubuntu 22.04).** Docker Desktop on Windows/macOS cannot run Falco's kernel-level syscall monitoring. You have two options:
 
-### Recommended: Ubuntu VM (Windows/macOS users)
-
-If you're on Windows or macOS, create an Ubuntu VM using VirtualBox, VMware, or any hypervisor:
+### Option A: Ubuntu VM (VirtualBox) — Recommended for Windows
 
 1. Download **Ubuntu 22.04 LTS** ISO from https://releases.ubuntu.com/jammy/
 2. Create a new VM in VirtualBox with at least **4GB RAM** and **20GB disk**
-3. Install Ubuntu inside the VM
-4. Inside the VM, install dependencies:
-   ```bash
-   sudo apt update
-   sudo apt install -y git curl
-   curl -fsSL https://get.docker.com | sudo sh
-   sudo usermod -aG docker $USER
-   # Log out and back in for group changes to take effect
-   ```
+3. Install Ubuntu normally inside the VM
+4. Continue to [Quick Start](#quick-start) below
 
-### Linux (Native Ubuntu/Debian)
-```bash
-sudo apt update
-sudo apt install -y git curl
-curl -fsSL https://get.docker.com | sudo sh
-sudo usermod -aG docker $USER
-# Log out and back in for group changes to take effect
+### Option B: WSL2 (Windows) — Alternative
+
+```powershell
+wsl --install -d Ubuntu-22.04
 ```
+Restart your computer, then open "Ubuntu 22.04" from the Start menu. Continue to [Quick Start](#quick-start) below.
+
+### Option C: Native Linux (Ubuntu/Debian)
+
+If you already have Ubuntu/Debian, skip to [Quick Start](#quick-start) below.
 
 ---
 
-## Setup Instructions
+## Quick Start
+
+Run these commands **one at a time** inside your Ubuntu environment:
+
+```bash
+sudo apt update && sudo apt install -y git curl
+```
+
+```bash
+curl -fsSL https://get.docker.com | sudo sh
+```
+
+```bash
+sudo usermod -aG docker $USER
+```
+
+**Log out and back in** (or reboot the VM) so Docker group changes take effect. Then:
+
+```bash
+git clone https://github.com/ritvikindupuri/falcosecurity.git
+```
+
+```bash
+cd falcosecurity
+```
+
+Create the `.env` file (replace the API key with your real one):
+
+```bash
+cat > .env << 'EOF'
+COMPOSE_PROJECT_NAME=falcohive-lab
+ELASTIC_VERSION=8.11.0
+FALCO_VERSION=0.36.1
+FALCOSIDEKITCH_VERSION=2.28.0
+CLAUDE_API_KEY=sk-ant-your-api-key-here
+CLAUDE_MODEL=claude-sonnet-4-20250514
+EOF
+```
+
+```bash
+./run.sh
+```
+
+Wait for **"Dashboard ready at http://localhost:3000"**, then open that URL in your browser and click **Run Full Pipeline**.
+
+> ⏱ **First run takes 5-10 minutes** — it downloads Elasticsearch, Falco, and other Docker images. Subsequent runs are much faster.
+
+---
+
+## Detailed Setup Instructions
+
+> Already went through Quick Start above? Skip to [Access the Dashboard](#step-4-access-the-dashboard).
 
 Follow these steps **in order**. Every step is required.
 
@@ -173,8 +217,6 @@ Now open `.env` in a text editor and **replace `your-claude-api-key-here`** with
 6. Paste it into the `.env` file replacing `your-claude-api-key-here`
 
 ### Step 3: Start the Lab
-
-> **Platform note:** This must run on a **Linux host** (native or Ubuntu VM). Docker Desktop on Windows/macOS does not support Falco's kernel-level syscall monitoring. See [Prerequisites](#prerequisites) above.
 
 Run the startup script to build all Docker images and start the dashboard:
 
