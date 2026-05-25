@@ -23,15 +23,94 @@ ATTACK_TO_COMPONENT = {
 
 app_state = {
     "components": {
-        "db_config": {"name": "Database Config", "endpoint": "/config", "status": "ok", "icon": "\U0001F5C4", "detail": "PostgreSQL 15 connected \u00b7 3 active connections \u00b7 SSL encrypted"},
-        "admin_panel": {"name": "Admin Portal", "endpoint": "/admin", "status": "ok", "icon": "\U0001F510", "detail": "RBAC enforced \u00b7 Admin access restricted \u00b7 Audit logging active"},
-        "user_auth": {"name": "User Login", "endpoint": "/login", "status": "ok", "icon": "\U0001F464", "detail": "JWT authentication \u00b7 0 active sessions \u00b7 2FA enabled"},
-        "internal_api": {"name": "Internal API", "endpoint": "/api/internal", "status": "ok", "icon": "\U0001F50C", "detail": "REST API v2.1 \u00b7 15 endpoints \u00b7 Rate limiting active"},
-        "file_upload": {"name": "File Upload", "endpoint": "/upload", "status": "ok", "icon": "\U0001F4C1", "detail": "Secure upload portal \u00b7 Virus scanning \u00b7 Integrity verified"},
-        "system": {"name": "System Health", "endpoint": None, "status": "ok", "icon": "\U0001F4BB", "detail": "All systems operational \u00b7 Uptime 2h 13m \u00b7 Load 12%"},
+        "db_config": {"name": "Database Config", "endpoint": "/config", "status": "ok", "icon": "\U0001F5C4", "detail": "PostgreSQL 15 connected \u00b7 3 active connections \u00b7 SSL encrypted", "stolen": None},
+        "admin_panel": {"name": "Admin Portal", "endpoint": "/admin", "status": "ok", "icon": "\U0001F510", "detail": "RBAC enforced \u00b7 Admin access restricted \u00b7 Audit logging active", "stolen": None},
+        "user_auth": {"name": "User Login", "endpoint": "/login", "status": "ok", "icon": "\U0001F464", "detail": "JWT authentication \u00b7 0 active sessions \u00b7 2FA enabled", "stolen": None},
+        "internal_api": {"name": "Internal API", "endpoint": "/api/internal", "status": "ok", "icon": "\U0001F50C", "detail": "REST API v2.1 \u00b7 15 endpoints \u00b7 Rate limiting active", "stolen": None},
+        "file_upload": {"name": "File Upload", "endpoint": "/upload", "status": "ok", "icon": "\U0001F4C1", "detail": "Secure upload portal \u00b7 Virus scanning \u00b7 Integrity verified", "stolen": None},
+        "system": {"name": "System Health", "endpoint": None, "status": "ok", "icon": "\U0001F4BB", "detail": "All systems operational \u00b7 Uptime 2h 13m \u00b7 Load 12%", "stolen": None},
     },
     "timeline": [],
     "total_attacks": 0,
+}
+
+STOLEN_DATA = {
+    "db_config": {
+        "attack": "Cgroup notify_on_release Escape (CVE-2022-0492)",
+        "title": "Exfiltrated Database Credentials",
+        "fields": {
+            "Database Host": "unique-postgres",
+            "Port": "5432",
+            "Database": "safedb",
+            "User": "safeuser",
+            "Password": "safepass",
+            "Secret Key": "dev-secret-12345",
+        },
+        "response": 'HTTP 200 \u2192 {"db_host": "unique-postgres", "redis_host": "unique-redis", "secret_key": "dev-secret-12345"}',
+        "method": "Cgroup release_agent \u2192 read host /proc/1/root\u2192 exfiltrated /config",
+    },
+    "admin_panel": {
+        "attack": "io_uring Seccomp Bypass (CVE-2022-25362)",
+        "title": "Stolen Admin Credentials & Access",
+        "fields": {
+            "Session Token": "admin-session-abc123xyz",
+            "Privilege Level": "ROOT / Administrator",
+            "Access Granted": "All internal endpoints",
+            "Seccomp Filter": "BYPASSED via io_uring",
+        },
+        "response": 'HTTP 200 \u2192 {"admin": true, "message": "admin access granted"}',
+        "method": "io_uring_setup() \u2192 seccomp bypass \u2192 /admin POST",
+    },
+    "user_auth": {
+        "attack": "ARP Cache Poisoning MITM",
+        "title": "Captured User Credentials (MITM)",
+        "fields": {
+            "Intercepted JWT": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjoiYWRtaW4ifQ...",
+            "Username": "admin",
+            "Password": "P@ssw0rd!",
+            "Session Cookie": "session=abc123; Secure; HttpOnly",
+            "Source IP": "172.21.0.x (MITM intercepted)",
+        },
+        "response": 'HTTP 200 \u2192 {"token": "fake-jwt-token-12345"}',
+        "method": "ARP spoof \u2192 raw socket sniff \u2192 intercepted /login POST",
+    },
+    "internal_api": {
+        "attack": "eBPF Rootkit Load Attempt",
+        "title": "Exfiltrated Internal API Data",
+        "fields": {
+            "Internal Endpoints Exposed": "/api/users, /api/secrets, /api/config, /api/logs",
+            "Syscall Hooked": "open(), read(), write(), connect()",
+            "Data Exfiltrated": "Customer records, API keys, internal service routes",
+            "Rootkit Persistence": "/etc/ld.so.preload modified with malicious .so",
+        },
+        "response": 'HTTP 200 \u2192 {"api_data": "sensitive_internal_data"}',
+        "method": "bpf() syscall \u2192 kprobe hook \u2192 data leak via kernel memory",
+    },
+    "file_upload": {
+        "attack": "Userfaultfd Race Condition (CVE-2022-2588)",
+        "title": "Corrupted Application Files",
+        "fields": {
+            "Corrupted File": "app.py (main application)",
+            "Original Hash (SHA256)": "a1b2c3d4e5f67890abcdef1234567890abcdef1234567890abcdef1234567890",
+            "Modified Hash (SHA256)": "ff00ee11dd22cc33bb44aa556677889900aabbccddeeff00112233445566778899",
+            "Injected Payload": 'os.system("rm -rf /tmp/isolated_data")',
+            "Race Window Exploited": "Memory page fault during concurrent file write",
+        },
+        "response": 'HTTP 200 \u2192 {"uploaded": true, "size": N}',
+        "method": "userfaultfd() \u2192 page fault trap \u2192 race condition \u2192 file corruption",
+    },
+    "system": {
+        "attack": "Multiple Attack Chain",
+        "title": "System Compromise Report",
+        "fields": {
+            "Compromised Services": "All 5 application services breached",
+            "Container Escape": "Host filesystem accessible via /proc/1/root",
+            "Persistence Mechanism": "eBPF rootkit + overlayfs hidden artifacts",
+            "Data at Risk": "Database creds, JWT secrets, internal API, app source code",
+        },
+        "response": "N/A \u2014 system-wide compromise detected",
+        "method": "Chain of 6 attacks \u2192 full infrastructure takeover",
+    },
 }
 
 COMPROMISED_DETAILS = {
@@ -66,6 +145,7 @@ def reset_state():
         for key, c in app_state["components"].items():
             c["status"] = "ok"
             c["detail"] = defaults.get(key, "")
+            c["stolen"] = None
         app_state["timeline"].clear()
         app_state["total_attacks"] = 0
 
@@ -94,6 +174,7 @@ def _update_component(comp_key, phase, attack_name):
         if info:
             c["status"] = info["status"]
             c["detail"] = info["detail"]
+        c["stolen"] = STOLEN_DATA.get(comp_key)
         app_state["timeline"].append({"time": ts, "phase": "EXPLOIT", "component": c["name"], "message": info["detail"] if info else f"Exploiting {c['name']}"})
         app_state["total_attacks"] += 1
         sys_comp = app_state["components"]["system"]
@@ -189,6 +270,32 @@ tr.attack-row:hover { background: rgba(248, 81, 73, 0.08); }
 @keyframes flash { 0% { background: rgba(210, 153, 34, 0.3); } 100% { background: transparent; } }
 tr.new-row { animation: flash 1s ease-out; }
 tr.new-row.attack-row { animation: flash 0.6s ease-out; }
+.service-card { cursor: pointer; }
+.service-card:hover { filter: brightness(1.15); }
+.modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.75); z-index: 1000; justify-content: center; align-items: center; }
+.modal-overlay.open { display: flex; }
+.modal { background: #161b22; border: 1px solid #30363d; border-radius: 12px; width: 600px; max-width: 90vw; max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+.modal-header { padding: 18px 20px; border-bottom: 1px solid #30363d; display: flex; align-items: center; justify-content: space-between; }
+.modal-header h2 { font-size: 16px; font-weight: 600; }
+.modal-close { background: none; border: none; color: #8b949e; font-size: 22px; cursor: pointer; padding: 0 4px; }
+.modal-close:hover { color: #f85149; }
+.modal-body { padding: 20px; }
+.modal-section { margin-bottom: 18px; }
+.modal-section:last-child { margin-bottom: 0; }
+.modal-section h3 { font-size: 12px; text-transform: uppercase; color: #8b949e; letter-spacing: 0.8px; margin-bottom: 8px; font-weight: 600; }
+.modal-field { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #21262d; font-size: 12px; }
+.modal-field:last-child { border-bottom: none; }
+.modal-field .key { color: #8b949e; font-family: 'Consolas', monospace; word-break: break-all; padding-right: 12px; }
+.modal-field .val { color: #e1e4e8; font-family: 'Consolas', monospace; font-weight: 500; text-align: right; word-break: break-all; }
+.modal-method { background: #1c2128; border: 1px solid #30363d; border-radius: 6px; padding: 10px 14px; font-family: 'Consolas', monospace; font-size: 11px; color: #8b949e; line-height: 1.5; }
+.modal-response { background: #0d1117; border: 1px solid #21262d; border-radius: 6px; padding: 10px 14px; font-family: 'Consolas', monospace; font-size: 11px; color: #58a6ff; line-height: 1.5; }
+.modal-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; margin-right: 4px; }
+.modal-tag.cve { background: #f8514922; border: 1px solid #f8514944; color: #f85149; }
+.modal-tag.mitre { background: #a371f722; border: 1px solid #a371f744; color: #a371f7; }
+.modal-badge { display: inline-block; padding: 2px 10px; border-radius: 10px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+.modal-badge.ok { background: #3fb95022; color: #3fb950; }
+.modal-badge.probing { background: #d2992222; color: #d29922; }
+.modal-badge.compromised { background: #f8514922; color: #f85149; }
 </style>
 </head>
 <body>
@@ -201,9 +308,19 @@ tr.new-row.attack-row { animation: flash 0.6s ease-out; }
     <span id="header-status"><span class="status-dot ok"></span> OPERATIONAL</span>
   </div>
 </header>
+<div id="modal-overlay" class="modal-overlay" onclick="closeModal(event)">
+  <div class="modal" id="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h2 id="modal-title">Service Details</h2>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
 <div class="container">
 
-  <div class="section-title">Service Status</div>
+  <div class="section-title">Service Status <span style="font-size:11px;color:#8b949e;font-weight:400;text-transform:none;letter-spacing:0">(click a card to see what data the attacker stole)</span></div>
   <div class="app-grid" id="app-grid"></div>
 
   <div class="feed-section">
@@ -240,14 +357,17 @@ async function refresh() {
     renderHeader(data.components);
   } catch(e) {}
 }
+var currentComponents = null;
 function renderComponents(components) {
   if (!components) return;
+  currentComponents = components;
   var grid = document.getElementById('app-grid');
   var html = '';
   for (var k in components) {
     var c = components[k];
     var st = c.status || 'ok';
-    html += '<div class="service-card ' + st + '">' +
+    var clickAttr = 'onclick="openModal(\'' + k + '\')"';
+    html += '<div class="service-card ' + st + '" ' + clickAttr + '>' +
       '<div class="card-header">' +
         '<span class="card-icon">' + safe(c.icon || '&#x1F5C4;') + '</span>' +
         '<span class="card-name">' + safe(c.name) + '</span>' +
@@ -257,6 +377,42 @@ function renderComponents(components) {
     '</div>';
   }
   grid.innerHTML = html;
+}
+function openModal(key) {
+  if (!currentComponents || !currentComponents[key]) return;
+  var c = currentComponents[key];
+  var st = c.status || 'ok';
+  if (st === 'ok') return;
+  var body = document.getElementById('modal-body');
+  var title = document.getElementById('modal-title');
+  title.innerHTML = safe(c.icon || '') + ' ' + safe(c.name);
+  if (!c.stolen) {
+    body.innerHTML = '<div class="modal-section"><h3>Status</h3><div style="color:#d29922;font-size:13px">Component is being probed but not yet compromised. Data not accessible.</div></div>';
+    document.getElementById('modal-overlay').classList.add('open');
+    return;
+  }
+  var s = c.stolen;
+  var cveMatch = s.attack.match(/CVE-[0-9-]+/);
+  var mitreMatch = s.attack.match(/T[0-9]+/);
+  var html = '';
+  html += '<div class="modal-section"><h3>Attack</h3><div style="font-size:13px;font-weight:600;margin-bottom:4px">' + safe(s.attack) + '</div>';
+  if (cveMatch) html += '<span class="modal-tag cve">' + safe(cveMatch[0]) + '</span> ';
+  if (mitreMatch) html += '<span class="modal-tag mitre">' + safe(mitreMatch[0]) + '</span>';
+  html += ' <span class="modal-badge ' + st + '">' + st.toUpperCase() + '</span>';
+  html += '</div>';
+  html += '<div class="modal-section"><h3>' + safe(s.title) + '</h3>';
+  for (var fk in s.fields) {
+    html += '<div class="modal-field"><span class="key">' + safe(fk) + '</span><span class="val">' + safe(s.fields[fk]) + '</span></div>';
+  }
+  html += '</div>';
+  html += '<div class="modal-section"><h3>HTTP Response (Intercepted)</h3><div class="modal-response">' + safe(s.response) + '</div></div>';
+  html += '<div class="modal-section"><h3>Exploit Method</h3><div class="modal-method">' + safe(s.method) + '</div></div>';
+  body.innerHTML = html;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+function closeModal(e) {
+  if (e && e.target !== e.currentTarget) return;
+  document.getElementById('modal-overlay').classList.remove('open');
 }
 function renderTimeline(timeline) {
   var body = document.getElementById('feed-body');

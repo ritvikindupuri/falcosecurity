@@ -244,6 +244,7 @@ The startup script supports **two modes** — choose the one that fits what you 
 > | 6 — Userfaultfd (CVE-2022-2588) | Memory corruption race condition | **File Upload** card → `COMPROMISED` (red), timeline: "FILES CORRUPTED" |
 >
 > Each attack has three phases (PROBE → EXPLOIT → VERIFY) visible in the **Attack Timeline** feed. Service cards transition from green (OK) → yellow (probing) → red (compromised). The header banner flips from "OPERATIONAL" to "UNDER ATTACK" to "COMPROMISED".
+> **Click any red (compromised) service card** to open a modal showing the exact data the attacker stole from that component — database credentials, admin session tokens, intercepted JWT tokens, exfiltrated API data, corrupted file hashes, and the exploit method used.
 
 > **Important — Order of Operations:**
 > 1. **First**, run `./run.sh` from the **host terminal** — this starts Falco and all infrastructure using correct host filesystem paths
@@ -287,14 +288,15 @@ You should see the **FalcoHive** dashboard with:
   - **Elasticsearch** (port 9200 — raw API)
    - **Target App** (port 8090 — live visual attack impact dashboard — see below)
 
-   > **About the Target App:** This is a live **mock enterprise application** ("TargetCorp Internal Portal") that visually demonstrates how each attack compromises different parts of the system. Open http://localhost:8090 to see:
-   > - **6 Service Cards** — Database Config, Admin Portal, User Login, Internal API, File Upload, System Health
-   > - **Real-time color transitions** — green (OK) → yellow (probing) → red (compromised)
-   > - **Attack Timeline feed** — scrolling log of every PROBE/EXPLOIT/VERIFY event with detailed impact descriptions
-   > - **Dynamic header banner** — switches from "OPERATIONAL" to "UNDER ATTACK" to "COMPROMISED"
-   > - **Detailed request table** — shows every HTTP request with CVE/MITRE tags and phase badges
-   >
-   > **API Endpoints (what the attacker targets):**
+    > **About the Target App:** This is a live **mock enterprise application** ("TargetCorp Internal Portal") that visually demonstrates how each attack compromises different parts of the system. Open http://localhost:8090 to see:
+    > - **6 Service Cards** — Database Config, Admin Portal, User Login, Internal API, File Upload, System Health
+    > - **Real-time color transitions** — green (OK) → yellow (probing) → red (compromised)
+    > - **Click any compromised (red) card** — opens a modal showing exactly what data the attacker stole (credentials, tokens, API keys, file hashes, etc.)
+    > - **Attack Timeline feed** — scrolling log of every PROBE/EXPLOIT/VERIFY event with detailed impact descriptions
+    > - **Dynamic header banner** — switches from "OPERATIONAL" to "UNDER ATTACK" to "COMPROMISED"
+    > - **Detailed request table** — shows every HTTP request with CVE/MITRE tags and phase badges
+    >
+    > **API Endpoints (what the attacker targets):**
    > | Endpoint | Method | Purpose |
    > |----------|--------|---------|
    > | `/` | GET | Live HTML "TargetCorp Internal Portal" dashboard |
