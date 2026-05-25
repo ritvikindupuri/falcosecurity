@@ -72,7 +72,7 @@ except Exception as e:
         (297, "bpf_raw_tracepoint_open"),
     ]
     for sysno, name in probes:
-        cmd = f"python3 -c \"import os; os.syscall({sysno}, 0, 0, 0)\" 2>&1 || true"
+        cmd = f"python3 -c \"import ctypes; libc=ctypes.CDLL('libc.so.6'); libc.syscall({sysno}, 0, 0, 0)\" 2>&1 || true"
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=3)
         log.info(f"{name} syscall ({sysno}): {result.stdout.strip()[:100]}")
 

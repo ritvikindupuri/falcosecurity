@@ -28,7 +28,7 @@ def run():
 
     try:
         ret = subprocess.run(
-            "python3 -c 'import os; print(os.syscall(425, 4, 0))' 2>&1 || echo FAIL",
+            "python3 -c 'import ctypes; libc=ctypes.CDLL(\"libc.so.6\"); print(libc.syscall(425, 4, 0))' 2>&1 || echo FAIL",
             shell=True, capture_output=True, text=True
         )
         log.info(f"io_uring_setup direct syscall: {ret.stdout.strip()[:200]}")

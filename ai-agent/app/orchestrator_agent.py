@@ -216,25 +216,17 @@ Call ONE tool at a time. Wait for the result before deciding the next step. Expl
             if name == "setup_infrastructure":
                 services = inputs.get("services") or []
                 status = await self.monitor.check_system_status()
-                es_ok = status.get("elasticsearch", {}).get("status") in ["green", "yellow"]
                 containers_up = len([c for c in status.get("containers", []) if "Up" in c])
 
-                build_result = {"summary": "Skipped - infrastructure already running", "success": True, "skipped": True}
-                start_result = {"summary": "Skipped - services already up", "success": True, "skipped": True}
-
-                if containers_up < 5 or not es_ok:
-                    log.info(f"Infra not fully ready ({containers_up} containers, ES={es_ok}), building and starting...")
-                    build_result = await self.infra.build_all()
-                    if build_result["success"]:
-                        start_result = await self.infra.start_services(services)
-                else:
-                    log.info(f"Infra already ready ({containers_up} containers, ES OK), skipping build/start")
+                build_result = {"summary": "Skipped - images pre-built by run.sh", "success": True, "skipped": True}
+                log.info(f"Starting all infrastructure services ({containers_up} currently running)...")
+                start_result = await self.infra.start_services(services)
 
                 es_ready = await self.infra.wait_for_elasticsearch()
                 kibana_ready = await self.infra.wait_for_kibana()
                 return {
-                    "summary": f"Infrastructure ready. ES: {es_ready['ready']}, Kibana: {kibana_ready['ready']}, Containers: {containers_up}",
-                    "pre_check": {"containers_running": containers_up, "elasticsearch_healthy": es_ok},
+                    "summary": f"Infrastructure ready. ES: {es_ready['ready']}, Kibana: {kibana_ready['ready']}",
+                    "pre_check": {"containers_running_before": containers_up},
                     "build": build_result,
                     "start": start_result,
                     "elasticsearch": es_ready,
