@@ -177,11 +177,7 @@ Now open `.env` in a text editor and **replace `your-claude-api-key-here`** with
 
 ### Step 3: Start the Lab
 
-The startup script supports **two modes** — choose the one that fits what you want to do:
-
----
-
-#### Mode A — Standard Mode (No AI, No Claude API Key Needed)
+Run the startup script to build all Docker images and start the dashboard:
 
 ```bash
 # On Windows (PowerShell):
@@ -192,47 +188,30 @@ The startup script supports **two modes** — choose the one that fits what you 
 ```
 
 **What this does:**
-1. Builds all Docker images (target app, attacker, AI agent)
-2. Starts Elasticsearch, Kibana, Falco, Falcosidekick, Falcosidekick UI, Redis, Postgres, target app, and the AI agent
-3. Waits for Elasticsearch to become healthy (green/yellow status)
-4. Waits for Kibana to be ready
-5. Waits for the AI Agent to be responsive
-6. Runs the attacker container (executes 6 attack scenarios)
-7. Outputs URLs for the dashboard and services
+1. Builds all Docker images (custom Falco with configs baked in, Falcosidekick, Filebeat, target app, attacker, AI agent)
+2. Starts only the **AI agent** container (dashboard at http://localhost:3000)
+3. Waits for the dashboard to be ready
 
-**Key points:**
-- **Zero Claude API usage** — no API key needed, no AI calls made
-- All 6 attacks run automatically and hit the target app live
-- Falco detects each attack and sends events to Elasticsearch
-- Open http://localhost:8090 during the attack run to watch each attack compromise the target app's service cards in **real-time** (auto-refreshes every 1.5 seconds)
-- After attacks finish, explore the Falco events in the dashboard at http://localhost:3000
+**Nothing else starts yet.** All infrastructure (Elasticsearch, Kibana, Falco, etc.) remains idle. Data only appears when you run the pipeline.
 
-#### Mode B — AI Mode (Claude-Powered Orchestration)
+#### Run the Pipeline
 
-```bash
-./run.sh ai
-```
+Two ways to trigger the full pipeline:
 
-**What this does (same infra setup + AI pipeline):**
-1. Same infrastructure setup as Mode A (steps 1-5)
-2. Triggers the Claude-powered orchestration pipeline via `POST /api/orchestrate`
-3. Claude AI orchestrates the full pipeline:
-   - `setup_infrastructure` — checks all services (Falco etc. must already be running from host)
-   - `launch_attacks` — runs all 6 attack scenarios
-   - `wait_for_falco_events` — polls Elasticsearch for detections
-   - `analyze_events` — runs each event through Claude for CVE/MITRE mapping and risk scoring
-   - `get_analysis_results` / `execute_remediation` — reviews and fixes findings
-4. Watch the pipeline progress live at http://localhost:3000
+1. **Click "Run Full Pipeline"** on the dashboard at http://localhost:3000
+2. **Or via command line:** `curl -X POST http://localhost:3000/api/orchestrate`
 
-**Key points:**
-- **Claude API is required** — set `CLAUDE_API_KEY` in `.env`
-- You can also trigger the same pipeline by clicking **"Run Full Pipeline"** on the dashboard after running `./run.sh` from the host first
-- During the attack phase, open http://localhost:8090 to see the live attack impact on the visual enterprise app dashboard
+The pipeline automatically:
+1. **Starts all infrastructure** — Elasticsearch, Kibana, Falco, Falcosidekick, Redis, Postgres, target app
+2. **Launches 6 attack scenarios** against the target app
+3. **Detects attacks with Falco** — real syscall monitoring, no synthetic events
+4. **Analyzes with Claude AI** — maps events to CVEs, MITRE ATT&CK, risk scores
+5. **Reports results** in the dashboard
 
----
+Open http://localhost:8090 during step 2 to watch the attack impact live.
 
 > **Live Attack Feed on the Target App:**
-> When the attacker runs (in either mode), open http://localhost:8090 in your browser. The page auto-refreshes every 1.5 seconds and shows a **live mock enterprise application** being attacked in real-time:
+> When the attacker runs, open http://localhost:8090 in your browser. The page auto-refreshes every 1.5 seconds and shows a **live enterprise application** under attack:
 >
 > | Attack | What it does | You'll see on the Target App |
 > |--------|-------------|---------------------------|
@@ -246,15 +225,8 @@ The startup script supports **two modes** — choose the one that fits what you 
 > Each attack has three phases (PROBE → EXPLOIT → VERIFY) visible in the **Attack Timeline** feed. Service cards transition from green (OK) → yellow (probing) → red (compromised). The header banner flips from "OPERATIONAL" to "UNDER ATTACK" to "COMPROMISED".
 > **Click any red (compromised) service card** to open a modal showing the exact data the attacker stole from that component — database credentials, admin session tokens, intercepted JWT tokens, exfiltrated API data, corrupted file hashes, and the exploit method used.
 
-> **Important — Order of Operations:**
-> 1. **First**, run `./run.sh` from the **host terminal** — this starts Falco and all infrastructure using correct host filesystem paths
-> 2. **Then**, click **"Run Full Pipeline"** on the dashboard to trigger the AI orchestration
->
-> Falco, Falcosidekick, and Filebeat require host bind mounts (`./falco/falco.yaml`, etc.) and **cannot** be started from inside the ai-agent container. They must be started from the host via `./run.sh` or `docker compose up -d`. The AI pipeline's `setup_infrastructure` step only starts services that don't need host bind mounts (Elasticsearch, Kibana, Redis, etc.).
-
 > **Note:** Before and between pipeline runs, all services are empty:
 > - **Target App** (port 8090) — shows all-green service cards with "No attacks detected"
-> - **Falco** — running but has no attack events to detect
 > - **Elasticsearch / Kibana** — zero security events indexed
 > - **Dashboard** (port 3000) — only shows "Run Full Pipeline" and "Clear Session" buttons
 >
@@ -263,7 +235,7 @@ The startup script supports **two modes** — choose the one that fits what you 
 > 2. Deletes all **Elasticsearch indices** — Falco events, analyses, remediations all removed
 > 3. Resets the **Dashboard** — hides all stats, events, and analysis cards
 >
-> Then the pipeline begins fresh: attacker runs → Falco detects → events land in clean ES → target app populates in real-time. This ensures you see the complete lifecycle from a true zero-data state every time.
+> Then the pipeline begins fresh: runs all infrastructure → attacker runs → Falco detects → events land in clean ES → target app populates in real-time.
 >
 > **No synthetic or mock Falco events** are ever generated. All security events come from real Falco syscall detections only.
 >
@@ -312,7 +284,7 @@ You should see the **FalcoHive** dashboard with:
    >
    > During the pipeline, the attacker hits each endpoint and the app's service cards change color and show impact text in real-time at http://localhost:8090 (auto-refreshes every 1.5 seconds). Old data is automatically cleared when a new pipeline run starts.
 
-- **Everything is empty** — no Falco events in Elasticsearch, no analyses, no target app data. All data only appears **after** you hit "Run Full Pipeline" (or run `./run.sh` in standard mode). Until then, Falco is running but has no attack events to detect, and Elasticsearch has zero security events indexed.
+- **Everything is empty** — no Falco events in Elasticsearch, no analyses, no target app data. All data only appears **after** you hit "Run Full Pipeline".
 
 ### Step 5: Stop the Lab (When You're Done)
 
@@ -351,7 +323,7 @@ docker compose down -v --rmi all
 2. Click the red **"Clear Session"** button in the header
 3. Confirms with a dialog — this deletes all Falco events, analyses, and remediations from Elasticsearch
 4. The dashboard resets to the empty initial state
-5. Run "Run Full Pipeline" or `docker compose up attacker` to re-generate events
+5. Run "Run Full Pipeline" to re-generate events (or `docker compose up attacker` from the host to run attacks manually)
 
 > **Note:** `docker compose down` without `-v` preserves your Elasticsearch data volume so events/analyses persist. Add `-v` only if you want to wipe everything.
 
@@ -437,15 +409,15 @@ Click **"Clear Session"** (red button in the header) to:
 
 A confirmation dialog prevents accidental clears.
 
-### Running in AI Mode (Script)
+### Running via Command Line
 
-Instead of clicking buttons, you can run the full AI pipeline from the command line:
+Instead of clicking the dashboard button, you can trigger the pipeline from the command line:
 
 ```bash
-./run.sh ai
+curl -X POST http://localhost:3000/api/orchestrate
 ```
 
-This starts the infrastructure and immediately triggers the orchestration pipeline. Watch progress at http://localhost:3000.
+Watch progress at http://localhost:3000.
 
 ---
 
@@ -597,7 +569,7 @@ The Falco UI is complementary to the FalcoHive dashboard:
 falcosecurity/
 ├── .env                          # Environment variables (Claude API key, versions)
 ├── docker-compose.yml            # 11-service Docker Compose definition
-├── run.sh                        # Startup script (standard + AI modes)
+├── run.sh                        # Startup script (builds images + starts dashboard)
 ├── README.md                     # This file
 │
 ├── ai-agent/                     # AI Orchestration Layer
@@ -632,14 +604,17 @@ falcosecurity/
 │   └── server.py                 # Mock enterprise app ("TargetCorp Internal Portal") with live attack impact dashboard
 │
 ├── falco/                        # Falco Configuration
+│   ├── Dockerfile                # Bakes config into custom image (no host bind mounts)
 │   ├── falco.yaml                # Falco daemon config (JSON output, HTTP to Sidekick)
 │   └── rules/
 │       └── custom_rules.yaml     # 8 custom detection rules
 │
 ├── falcosidekick/                # Event Router
+│   ├── Dockerfile                # Bakes config into custom image
 │   └── config.yaml               # Routes Falco events to Elasticsearch
 │
 └── filebeat/                     # Container Log Shipper
+    ├── Dockerfile                # Bakes config into custom image
     └── filebeat.yml              # Collects Docker container logs to ES
 ```
 
