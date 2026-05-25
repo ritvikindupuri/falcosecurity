@@ -702,6 +702,17 @@ docker compose up attacker
 ### Port conflicts
 If ports 3000, 5601, 9200, 8090 are in use, edit the `ports:` section in `docker-compose.yml` to change host-side mappings.
 
+### "address already in use" on port 3000 during ./run.sh
+This means something else is already using port 3000 on your host. First, stop any leftover container:
+```bash
+docker stop unique-ai-agent 2>/dev/null; docker rm unique-ai-agent 2>/dev/null
+```
+Then rerun `./run.sh`. If it still fails, find what's using port 3000:
+```bash
+sudo netstat -tlnp | grep :3000
+```
+Kill the process with `sudo kill <PID>`. On Windows/WSL, check if a Windows app is bound to port 3000 by running `netstat -aon | findstr :3000` in PowerShell and killing the process by PID.
+
 ---
 
 ## License
