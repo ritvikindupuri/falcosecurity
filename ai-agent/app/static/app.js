@@ -246,6 +246,20 @@ async function startPipeline() {
   }
 
   try {
+    const clearData = await getJSON("/api/clear", { method: "DELETE" });
+    addOrchestrationLog("system", `Cleared ${clearData.indices?.length || 0} ES indices`, "info");
+  } catch (e) {
+    addOrchestrationLog("system", `Could not clear ES indices: ${e.message}`, "warning");
+  }
+
+  eventsData = [];
+  analysesData = [];
+  hasEverHadData = false;
+  hideSections();
+  document.getElementById("events-list").innerHTML = '<div class="empty-state">No Falco events yet.</div>';
+  document.getElementById("analysis-list").innerHTML = '<div class="empty-state">No analyses yet.</div>';
+
+  try {
     const data = await getJSON(API.orchestrate, {
       method: "POST",
       body: JSON.stringify({ goal: "Set up the full container security lab: start all infrastructure, launch all attacks, detect them with Falco, analyze with AI, and report results." })
@@ -369,6 +383,9 @@ async function clearSession() {
   const btn = document.getElementById("btn-clear");
   btn.disabled = true;
   btn.textContent = "Clearing...";
+  try {
+    await fetch("http://localhost:8090/api/reset", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+  } catch (e) { /* silent */ }
   try {
     const data = await getJSON("/api/clear", { method: "DELETE" });
     orchestrationSessionId = null;
