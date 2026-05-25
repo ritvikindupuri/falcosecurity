@@ -227,9 +227,8 @@ header h1 span { color: #a371f7; }
 .feed-body { padding: 0; max-height: 240px; overflow-y: auto; }
 .feed-empty { padding: 30px; text-align: center; color: #8b949e; font-size: 13px; }
 .feed-empty .big { font-size: 36px; margin-bottom: 8px; }
-.feed-item { padding: 10px 18px; border-bottom: 1px solid #21262d; display: flex; align-items: flex-start; gap: 10px; font-size: 12px; animation: slideIn 0.3s ease-out; }
+.feed-item { padding: 10px 18px; border-bottom: 1px solid #21262d; display: flex; align-items: flex-start; gap: 10px; font-size: 12px; }
 .feed-item:last-child { border-bottom: none; }
-@keyframes slideIn { 0% { opacity: 0; transform: translateX(-10px); } 100% { opacity: 1; transform: translateX(0); } }
 .feed-item .feed-time { color: #8b949e; white-space: nowrap; font-family: monospace; min-width: 60px; }
 .feed-phase { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; white-space: nowrap; min-width: 52px; text-align: center; }
 .feed-phase.PROBE { background: #d2992222; color: #d29922; border: 1px solid #d2992244; }
@@ -237,7 +236,6 @@ header h1 span { color: #a371f7; }
 .feed-phase.VERIFY { background: #58a6ff22; color: #58a6ff; border: 1px solid #58a6ff44; }
 .feed-item .feed-comp { color: #a371f7; font-weight: 500; white-space: nowrap; }
 .feed-item .feed-msg { color: #e1e4e8; }
-.feed-item.new-feed { background: rgba(163, 113, 247, 0.04); }
 .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 20px; }
 .stat-card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; text-align: center; }
 .stat-card h3 { font-size: 11px; text-transform: uppercase; color: #8b949e; margin-bottom: 6px; }
@@ -346,6 +344,189 @@ tr.new-row.attack-row { animation: flash 0.6s ease-out; }
   </table>
 </div>
 <script>
+var currentComponents = null;
+var prevComponents = null;
+var knownTimelineCount = 0;
+var pendingUpdates = [];
+var updateTimer = null;
+var openModalKey = null;
+
+var HEALTHY_UI = {
+  db_config: '<div style="background:#0d1117;border:1px solid #30363d;border-radius:8px;overflow:hidden">' +
+    '<div style="background:#1c2128;padding:10px 14px;border-bottom:1px solid #30363d;display:flex;align-items:center;gap:8px">' +
+      '<span style="font-size:16px">\uD83D\uDCC4</span>' +
+      '<span style="font-weight:600;font-size:13px">PostgreSQL Connection Manager</span>' +
+      '<span style="margin-left:auto;background:#3fb95022;color:#3fb950;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px">OPERATIONAL</span>' +
+    '</div>' +
+    '<div style="padding:14px">' +
+      '<div style="margin-bottom:12px">' +
+        '<div style="font-size:11px;color:#8b949e;margin-bottom:4px">CONNECTION DETAILS</div>' +
+        '<div style="background:#1c2128;border:1px solid #30363d;border-radius:6px;padding:10px;font-family:monospace;font-size:12px">' +
+          '<div style="display:flex;justify-content:space-between;padding:3px 0"><span style="color:#8b949e">Host:</span><span>unique-postgres</span></div>' +
+          '<div style="display:flex;justify-content:space-between;padding:3px 0"><span style="color:#8b949e">Port:</span><span>5432</span></div>' +
+          '<div style="display:flex;justify-content:space-between;padding:3px 0"><span style="color:#8b949e">Database:</span><span>safedb</span></div>' +
+          '<div style="display:flex;justify-content:space-between;padding:3px 0"><span style="color:#8b949e">User:</span><span>safeuser</span></div>' +
+          '<div style="display:flex;justify-content:space-between;padding:3px 0"><span style="color:#8b949e">Password:</span><span>\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022</span></div>' +
+        '</div>' +
+      '</div>' +
+      '<div>' +
+        '<div style="font-size:11px;color:#8b949e;margin-bottom:4px">SERVER STATUS</div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
+          '<div style="background:#1c2128;border:1px solid #30363d;border-radius:6px;padding:8px;text-align:center">' +
+            '<div style="font-size:10px;color:#8b949e">Connections</div><div style="color:#3fb950;font-weight:600;font-size:14px;margin-top:2px">3 active</div>' +
+          '</div>' +
+          '<div style="background:#1c2128;border:1px solid #30363d;border-radius:6px;padding:8px;text-align:center">' +
+            '<div style="font-size:10px;color:#8b949e">SSL</div><div style="color:#3fb950;font-weight:600;font-size:14px;margin-top:2px">Encrypted</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+  '</div>',
+  admin_panel: '<div style="background:#0d1117;border:1px solid #30363d;border-radius:8px;overflow:hidden">' +
+    '<div style="background:#1c2128;padding:10px 14px;border-bottom:1px solid #30363d;display:flex;align-items:center;gap:8px">' +
+      '<span style="font-size:16px">\uD83D\uDD10</span>' +
+      '<span style="font-weight:600;font-size:13px">Admin Control Panel</span>' +
+      '<span style="margin-left:auto;background:#3fb95022;color:#3fb950;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px">SECURE</span>' +
+    '</div>' +
+    '<div style="padding:14px">' +
+      '<div style="margin-bottom:12px">' +
+        '<div style="font-size:11px;color:#8b949e;margin-bottom:4px">SECURITY POSTURE</div>' +
+        '<div style="background:#1c2128;border:1px solid #30363d;border-radius:6px;padding:10px">' +
+          '<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0"><span style="color:#8b949e">RBAC:</span><span style="color:#3fb950">Enforced</span></div>' +
+          '<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0"><span style="color:#8b949e">Access Level:</span><span style="color:#3fb950">Restricted</span></div>' +
+          '<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0"><span style="color:#8b949e">Audit Log:</span><span style="color:#3fb950">Active</span></div>' +
+          '<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0"><span style="color:#8b949e">Seccomp:</span><span style="color:#3fb950">Enforced</span></div>' +
+        '</div>' +
+      '</div>' +
+      '<div>' +
+        '<div style="font-size:11px;color:#8b949e;margin-bottom:4px">RECENT ACTIVITY</div>' +
+        '<div style="background:#1c2128;border:1px solid #30363d;border-radius:6px;padding:10px;font-family:monospace;font-size:11px">' +
+          '<div><span style="color:#8b949e">[12:58:12]</span> Admin login from 10.0.0.5 (authorized)</div>' +
+          '<div style="margin-top:3px"><span style="color:#8b949e">[12:55:30]</span> User list exported by admin (authorized)</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+  '</div>',
+  user_auth: '<div style="background:#0d1117;border:1px solid #30363d;border-radius:8px;overflow:hidden">' +
+    '<div style="background:#1c2128;padding:10px 14px;border-bottom:1px solid #30363d;display:flex;align-items:center;gap:8px">' +
+      '<span style="font-size:16px">\uD83D\uDC64</span>' +
+      '<span style="font-weight:600;font-size:13px">User Authentication Portal</span>' +
+      '<span style="margin-left:auto;background:#3fb95022;color:#3fb950;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px">SECURE</span>' +
+    '</div>' +
+    '<div style="padding:14px">' +
+      '<div style="background:#1c2128;border:1px solid #30363d;border-radius:6px;padding:12px;margin-bottom:12px">' +
+        '<div style="font-size:11px;color:#8b949e;margin-bottom:6px">LOGIN FORM</div>' +
+        '<div style="display:flex;flex-direction:column;gap:6px">' +
+          '<div style="display:flex;align-items:center;gap:8px"><span style="color:#8b949e;min-width:70px;font-size:12px">Username:</span><span style="background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:4px 8px;font-size:12px;color:#8b949e;flex:1">[input]</span></div>' +
+          '<div style="display:flex;align-items:center;gap:8px"><span style="color:#8b949e;min-width:70px;font-size:12px">Password:</span><span style="background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:4px 8px;font-size:12px;color:#8b949e;flex:1">\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022</span></div>' +
+        '</div>' +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
+        '<div style="background:#1c2128;border:1px solid #30363d;border-radius:6px;padding:8px;text-align:center">' +
+          '<div style="font-size:10px;color:#8b949e">Auth Method</div><div style="color:#3fb950;font-weight:600;font-size:12px;margin-top:2px">JWT + 2FA</div>' +
+        '</div>' +
+        '<div style="background:#1c2128;border:1px solid #30363d;border-radius:6px;padding:8px;text-align:center">' +
+          '<div style="font-size:10px;color:#8b949e">Sessions</div><div style="color:#8b949e;font-weight:600;font-size:12px;margin-top:2px">0 active</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+  '</div>',
+  internal_api: '<div style="background:#0d1117;border:1px solid #30363d;border-radius:8px;overflow:hidden">' +
+    '<div style="background:#1c2128;padding:10px 14px;border-bottom:1px solid #30363d;display:flex;align-items:center;gap:8px">' +
+      '<span style="font-size:16px">\uD83D\uDD0C</span>' +
+      '<span style="font-weight:600;font-size:13px">Internal REST API v2.1</span>' +
+      '<span style="margin-left:auto;background:#3fb95022;color:#3fb950;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px">OPERATIONAL</span>' +
+    '</div>' +
+    '<div style="padding:14px">' +
+      '<div style="margin-bottom:12px">' +
+        '<div style="font-size:11px;color:#8b949e;margin-bottom:4px">ENDPOINTS <span style="font-weight:400">15 total</span></div>' +
+        '<div style="background:#1c2128;border:1px solid #30363d;border-radius:6px;overflow:hidden">' +
+          '<div style="display:flex;padding:8px 10px;border-bottom:1px solid #21262d;align-items:center">' +
+            '<span style="background:#3fb95022;color:#3fb950;font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px;margin-right:8px">GET</span>' +
+            '<span style="font-family:monospace;font-size:12px">/api/users</span><span style="margin-left:auto;color:#8b949e;font-size:10px">200 OK</span>' +
+          '</div>' +
+          '<div style="display:flex;padding:8px 10px;border-bottom:1px solid #21262d;align-items:center">' +
+            '<span style="background:#3fb95022;color:#3fb950;font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px;margin-right:8px">GET</span>' +
+            '<span style="font-family:monospace;font-size:12px">/api/secrets</span><span style="margin-left:auto;color:#8b949e;font-size:10px">200 OK</span>' +
+          '</div>' +
+          '<div style="display:flex;padding:8px 10px;border-bottom:1px solid #21262d;align-items:center">' +
+            '<span style="background:#d2992222;color:#d29922;font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px;margin-right:8px">POST</span>' +
+            '<span style="font-family:monospace;font-size:12px">/api/config</span><span style="margin-left:auto;color:#8b949e;font-size:10px">200 OK</span>' +
+          '</div>' +
+          '<div style="display:flex;padding:8px 10px;align-items:center">' +
+            '<span style="background:#3fb95022;color:#3fb950;font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px;margin-right:8px">GET</span>' +
+            '<span style="font-family:monospace;font-size:12px">/api/logs</span><span style="margin-left:auto;color:#8b949e;font-size:10px">200 OK</span>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
+        '<div style="background:#1c2128;border:1px solid #30363d;border-radius:6px;padding:8px;text-align:center">' +
+          '<div style="font-size:10px;color:#8b949e">Rate Limit</div><div style="color:#3fb950;font-weight:600;font-size:12px;margin-top:2px">Active</div>' +
+        '</div>' +
+        '<div style="background:#1c2128;border:1px solid #30363d;border-radius:6px;padding:8px;text-align:center">' +
+          '<div style="font-size:10px;color:#8b949e">Auth Required</div><div style="color:#3fb950;font-weight:600;font-size:12px;margin-top:2px">Yes</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+  '</div>',
+  file_upload: '<div style="background:#0d1117;border:1px solid #30363d;border-radius:8px;overflow:hidden">' +
+    '<div style="background:#1c2128;padding:10px 14px;border-bottom:1px solid #30363d;display:flex;align-items:center;gap:8px">' +
+      '<span style="font-size:16px">\uD83D\uDCC1</span>' +
+      '<span style="font-weight:600;font-size:13px">Secure File Upload Portal</span>' +
+      '<span style="margin-left:auto;background:#3fb95022;color:#3fb950;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px">SECURE</span>' +
+    '</div>' +
+    '<div style="padding:14px">' +
+      '<div style="background:#1c2128;border:1px solid #30363d;border-radius:8px;padding:16px;margin-bottom:12px;text-align:center">' +
+        '<div style="font-size:32px;margin-bottom:8px">\uD83D\uDCC4</div>' +
+        '<div style="font-size:13px;color:#8b949e">Drag & drop files here or click to browse</div>' +
+        '<div style="font-size:11px;color:#8b949e;margin-top:4px">Max size: 50MB \u00b7 Allowed: .pdf, .png, .jpg, .zip</div>' +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
+        '<div style="background:#1c2128;border:1px solid #30363d;border-radius:6px;padding:8px;text-align:center">' +
+          '<div style="font-size:10px;color:#8b949e">Virus Scan</div><div style="color:#3fb950;font-weight:600;font-size:12px;margin-top:2px">Active</div>' +
+        '</div>' +
+        '<div style="background:#1c2128;border:1px solid #30363d;border-radius:6px;padding:8px;text-align:center">' +
+          '<div style="font-size:10px;color:#8b949e">Integrity</div><div style="color:#3fb950;font-weight:600;font-size:12px;margin-top:2px">Verified</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+  '</div>',
+  system: '<div style="background:#0d1117;border:1px solid #30363d;border-radius:8px;overflow:hidden">' +
+    '<div style="background:#1c2128;padding:10px 14px;border-bottom:1px solid #30363d;display:flex;align-items:center;gap:8px">' +
+      '<span style="font-size:16px">\uD83D\uDCBB</span>' +
+      '<span style="font-weight:600;font-size:13px">System Health Dashboard</span>' +
+      '<span style="margin-left:auto;background:#3fb95022;color:#3fb950;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px">HEALTHY</span>' +
+    '</div>' +
+    '<div style="padding:14px">' +
+      '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:12px">' +
+        '<div style="background:#3fb95011;border:1px solid #3fb95044;border-radius:6px;padding:6px;text-align:center">' +
+          '<div style="font-size:8px;color:#8b949e">DB</div><div style="font-size:10px;color:#3fb950;font-weight:600">\u2714</div>' +
+        '</div>' +
+        '<div style="background:#3fb95011;border:1px solid #3fb95044;border-radius:6px;padding:6px;text-align:center">' +
+          '<div style="font-size:8px;color:#8b949e">Admin</div><div style="font-size:10px;color:#3fb950;font-weight:600">\u2714</div>' +
+        '</div>' +
+        '<div style="background:#3fb95011;border:1px solid #3fb95044;border-radius:6px;padding:6px;text-align:center">' +
+          '<div style="font-size:8px;color:#8b949e">Auth</div><div style="font-size:10px;color:#3fb950;font-weight:600">\u2714</div>' +
+        '</div>' +
+        '<div style="background:#3fb95011;border:1px solid #3fb95044;border-radius:6px;padding:6px;text-align:center">' +
+          '<div style="font-size:8px;color:#8b949e">API</div><div style="font-size:10px;color:#3fb950;font-weight:600">\u2714</div>' +
+        '</div>' +
+        '<div style="background:#3fb95011;border:1px solid #3fb95044;border-radius:6px;padding:6px;text-align:center">' +
+          '<div style="font-size:8px;color:#8b949e">Upload</div><div style="font-size:10px;color:#3fb950;font-weight:600">\u2714</div>' +
+        '</div>' +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
+        '<div style="background:#1c2128;border:1px solid #30363d;border-radius:6px;padding:10px;text-align:center">' +
+          '<div style="font-size:10px;color:#8b949e">Uptime</div><div style="color:#3fb950;font-weight:600;font-size:14px;margin-top:2px">2h 13m</div>' +
+        '</div>' +
+        '<div style="background:#1c2128;border:1px solid #30363d;border-radius:6px;padding:10px;text-align:center">' +
+          '<div style="font-size:10px;color:#8b949e">Load</div><div style="color:#3fb950;font-weight:600;font-size:14px;margin-top:2px">12%</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+  '</div>',
+};
+
 async function refresh() {
   try {
     var r = await fetch('/api/requests');
@@ -355,89 +536,424 @@ async function refresh() {
     renderStats(data);
     renderLog(data.requests);
     renderHeader(data.components);
+    updateOpenModal();
   } catch(e) {}
 }
-var currentComponents = null;
+
 function renderComponents(components) {
   if (!components) return;
   currentComponents = components;
   var grid = document.getElementById('app-grid');
-  var html = '';
-  for (var k in components) {
-    var c = components[k];
-    var st = c.status || 'ok';
-    var clickAttr = 'onclick="openModal(\'' + k + '\')"';
-    html += '<div class="service-card ' + st + '" ' + clickAttr + '>' +
-      '<div class="card-header">' +
-        '<span class="card-icon">' + safe(c.icon || '&#x1F5C4;') + '</span>' +
-        '<span class="card-name">' + safe(c.name) + '</span>' +
-        '<span class="card-status">' + st.toUpperCase() + '</span>' +
-      '</div>' +
-      '<div class="card-detail">' + safe(c.detail || '') + '</div>' +
-    '</div>';
+
+  if (!prevComponents) {
+    var html = '';
+    for (var k in components) {
+      var c = components[k];
+      var st = c.status || 'ok';
+      html += '<div class="service-card ' + st + '" data-key="' + k + '" onclick="openModal(\'' + k + '\')">' +
+        '<div class="card-header">' +
+          '<span class="card-icon">' + safe(c.icon || '&#x1F5C4;') + '</span>' +
+          '<span class="card-name">' + safe(c.name) + '</span>' +
+          '<span class="card-status">' + st.toUpperCase() + '</span>' +
+        '</div>' +
+        '<div class="card-detail">' + safe(c.detail || '') + '</div>' +
+      '</div>';
+    }
+    grid.innerHTML = html;
+    prevComponents = JSON.parse(JSON.stringify(components));
+    return;
   }
-  grid.innerHTML = html;
+
+  var changed = [];
+  for (var k in components) {
+    var curr = components[k];
+    var prev = prevComponents[k];
+    if (prev && prev.status !== curr.status) {
+      changed.push({key: k, component: curr});
+    }
+  }
+
+  if (changed.length > 0) {
+    if (updateTimer) { clearTimeout(updateTimer); updateTimer = null; }
+    pendingUpdates = changed;
+    applyNextUpdate();
+  }
+
+  for (var k in components) {
+    var card = grid.querySelector('[data-key="' + k + '"]');
+    if (card) {
+      var curr = components[k];
+      var prev = prevComponents[k];
+      var needsDetail = (!prev || prev.detail !== curr.detail || prev.stolen !== curr.stolen);
+      var notChanging = !changed.some(function(c) { return c.key === k; });
+      if (notChanging && needsDetail) {
+        card.querySelector('.card-detail').textContent = curr.detail || '';
+      }
+    }
+  }
+  prevComponents = JSON.parse(JSON.stringify(components));
 }
+
+function applyNextUpdate() {
+  if (pendingUpdates.length === 0) { updateTimer = null; return; }
+  var item = pendingUpdates.shift();
+  var card = document.querySelector('[data-key="' + item.key + '"]');
+  if (card) {
+    card.className = 'service-card ' + item.component.status;
+    card.querySelector('.card-status').textContent = item.component.status.toUpperCase();
+    card.querySelector('.card-detail').textContent = item.component.detail || '';
+  }
+  updateTimer = setTimeout(applyNextUpdate, 1200);
+}
+
 function openModal(key) {
   if (!currentComponents || !currentComponents[key]) return;
   var c = currentComponents[key];
-  var st = c.status || 'ok';
-  if (st === 'ok') return;
   var body = document.getElementById('modal-body');
   var title = document.getElementById('modal-title');
   title.innerHTML = safe(c.icon || '') + ' ' + safe(c.name);
-  if (!c.stolen) {
-    body.innerHTML = '<div class="modal-section"><h3>Status</h3><div style="color:#d29922;font-size:13px">Component is being probed but not yet compromised. Data not accessible.</div></div>';
-    document.getElementById('modal-overlay').classList.add('open');
-    return;
-  }
-  var s = c.stolen;
-  var cveMatch = s.attack.match(/CVE-[0-9-]+/);
-  var mitreMatch = s.attack.match(/T[0-9]+/);
-  var html = '';
-  html += '<div class="modal-section"><h3>Attack</h3><div style="font-size:13px;font-weight:600;margin-bottom:4px">' + safe(s.attack) + '</div>';
-  if (cveMatch) html += '<span class="modal-tag cve">' + safe(cveMatch[0]) + '</span> ';
-  if (mitreMatch) html += '<span class="modal-tag mitre">' + safe(mitreMatch[0]) + '</span>';
-  html += ' <span class="modal-badge ' + st + '">' + st.toUpperCase() + '</span>';
-  html += '</div>';
-  html += '<div class="modal-section"><h3>' + safe(s.title) + '</h3>';
-  for (var fk in s.fields) {
-    html += '<div class="modal-field"><span class="key">' + safe(fk) + '</span><span class="val">' + safe(s.fields[fk]) + '</span></div>';
-  }
-  html += '</div>';
-  html += '<div class="modal-section"><h3>HTTP Response (Intercepted)</h3><div class="modal-response">' + safe(s.response) + '</div></div>';
-  html += '<div class="modal-section"><h3>Exploit Method</h3><div class="modal-method">' + safe(s.method) + '</div></div>';
-  body.innerHTML = html;
+  body.innerHTML = getModalHtml(key);
+  openModalKey = key;
   document.getElementById('modal-overlay').classList.add('open');
 }
+
+function getModalHtml(key) {
+  var c = currentComponents[key];
+  var st = c.status || 'ok';
+  if (st === 'ok') {
+    return HEALTHY_UI[key] || '<div class="modal-section" style="text-align:center;padding:20px;color:#8b949e">No data available</div>';
+  }
+  if (!c.stolen) {
+    return '<div class="modal-section" style="text-align:center;padding:20px"><div style="font-size:36px;color:#d29922;margin-bottom:8px">&#x1F50D;</div><div style="color:#d29922;font-size:13px">Component is being probed — attacker scanning for vulnerabilities.<br>Data not accessible yet.</div></div>';
+  }
+  var s = c.stolen;
+  var html = '';
+  if (key === 'db_config') {
+    html = '<div style="background:#0d1117;border:1px solid #30363d;border-radius:8px;overflow:hidden">' +
+      '<div style="background:#1c2128;padding:10px 14px;border-bottom:1px solid #30363d;display:flex;align-items:center;gap:8px">' +
+        '<span style="font-size:16px">\uD83D\uDCC4</span>' +
+        '<span style="font-weight:600;font-size:13px">PostgreSQL Connection Manager</span>' +
+        '<span style="margin-left:auto;background:#f85149;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px">COMPROMISED</span>' +
+      '</div>' +
+      '<div style="padding:14px">' +
+        '<div style="margin-bottom:12px">' +
+          '<div style="font-size:11px;color:#8b949e;margin-bottom:4px">CONNECTION DETAILS</div>' +
+          '<div style="background:#1c2128;border:1px solid #30363d;border-radius:6px;padding:10px;font-family:monospace;font-size:12px">' +
+            '<div style="display:flex;justify-content:space-between;padding:3px 0"><span style="color:#8b949e">Host:</span><span style="color:#f85149;font-weight:600">unique-postgres</span></div>' +
+            '<div style="display:flex;justify-content:space-between;padding:3px 0"><span style="color:#8b949e">Port:</span><span>5432</span></div>' +
+            '<div style="display:flex;justify-content:space-between;padding:3px 0"><span style="color:#8b949e">Database:</span><span style="color:#f85149;font-weight:600">safedb</span></div>' +
+            '<div style="display:flex;justify-content:space-between;padding:3px 0"><span style="color:#8b949e">User:</span><span style="color:#f85149;font-weight:600">safeuser</span></div>' +
+            '<div style="display:flex;justify-content:space-between;padding:3px 0"><span style="color:#8b949e">Password:</span><span style="color:#f85149;font-weight:600">safepass</span></div>' +
+          '</div>' +
+        '</div>' +
+        '<div style="margin-bottom:12px">' +
+          '<div style="font-size:11px;color:#8b949e;margin-bottom:4px">CONNECTION STRING \u2014 EXPOSED VIA CGROUP ESCAPE</div>' +
+          '<div style="background:#f8514911;border:1px solid #f8514944;border-radius:6px;padding:10px;font-family:monospace;font-size:11px;color:#f85149">' +
+            'postgresql://safeuser:safepass@unique-postgres:5432/safedb' +
+          '</div>' +
+        '</div>' +
+        '<div style="margin-bottom:12px">' +
+          '<div style="font-size:11px;color:#8b949e;margin-bottom:4px">RECENT QUERIES (INTERCEPTED)</div>' +
+          '<div style="background:#1c2128;border:1px solid #30363d;border-radius:6px;padding:10px;font-family:monospace;font-size:11px">' +
+            '<div style="color:#58a6ff">SELECT * FROM users WHERE admin=true;</div>' +
+            '<div style="color:#8b949e;margin-top:3px">\u2192 247 rows returned <span style="color:#f85149">[DATA LEAKED]</span></div>' +
+            '<div style="color:#58a6ff;margin-top:6px">SELECT * FROM secrets;</div>' +
+            '<div style="color:#8b949e;margin-top:3px">\u2192 12 rows returned <span style="color:#f85149">[DATA LEAKED]</span></div>' +
+          '</div>' +
+        '</div>' +
+        '<div style="background:#161b22;border:1px solid #30363d;border-radius:6px;padding:10px">' +
+          '<div style="font-size:11px;color:#8b949e;margin-bottom:6px">REDIS CACHE (ALSO EXPOSED)</div>' +
+          '<div style="display:flex;justify-content:space-between;font-family:monospace;font-size:11px"><span style="color:#8b949e">Host:</span><span style="color:#f85149">unique-redis</span></div>' +
+          '<div style="display:flex;justify-content:space-between;font-family:monospace;font-size:11px;margin-top:3px"><span style="color:#8b949e">Secret Key:</span><span style="color:#f85149">dev-secret-12345</span></div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  } else if (key === 'admin_panel') {
+    html = '<div style="background:#0d1117;border:1px solid #30363d;border-radius:8px;overflow:hidden">' +
+      '<div style="background:#1c2128;padding:10px 14px;border-bottom:1px solid #30363d;display:flex;align-items:center;gap:8px">' +
+        '<span style="font-size:16px">\uD83D\uDD10</span>' +
+        '<span style="font-weight:600;font-size:13px">Admin Control Panel</span>' +
+        '<span style="margin-left:auto;background:#f85149;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px">COMPROMISED</span>' +
+      '</div>' +
+      '<div style="padding:14px">' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">' +
+          '<div style="background:#1c2128;border:1px solid #30363d;border-radius:6px;padding:10px">' +
+            '<div style="font-size:10px;color:#8b949e;text-transform:uppercase;margin-bottom:4px">Session</div>' +
+            '<div style="font-family:monospace;font-size:11px;color:#f85149;word-break:break-all">admin-session-abc123xyz</div>' +
+          '</div>' +
+          '<div style="background:#1c2128;border:1px solid #30363d;border-radius:6px;padding:10px">' +
+            '<div style="font-size:10px;color:#8b949e;text-transform:uppercase;margin-bottom:4px">Privilege</div>' +
+            '<div style="font-size:13px;font-weight:700;color:#f85149">ROOT</div>' +
+          '</div>' +
+        '</div>' +
+        '<div style="margin-bottom:12px">' +
+          '<div style="font-size:11px;color:#8b949e;margin-bottom:4px">SECURITY STATUS</div>' +
+          '<div style="background:#1c2128;border:1px solid #30363d;border-radius:6px;padding:10px">' +
+            '<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0"><span style="color:#8b949e">Seccomp Filter:</span><span style="color:#f85149;font-weight:600">BYPASSED via io_uring</span></div>' +
+            '<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0"><span style="color:#8b949e">RBAC:</span><span style="color:#f85149;font-weight:600">DISABLED</span></div>' +
+            '<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0"><span style="color:#8b949e">Audit Log:</span><span style="color:#f85149;font-weight:600">TAMPERED</span></div>' +
+            '<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0"><span style="color:#8b949e">Accessible Endpoints:</span><span style="color:#f85149">All \u2014 /api/users, /api/secrets, /api/config, /api/logs</span></div>' +
+          '</div>' +
+        '</div>' +
+        '<div>' +
+          '<div style="font-size:11px;color:#8b949e;margin-bottom:4px">ATTACKER ACTIVITY LOG</div>' +
+          '<div style="background:#1c2128;border:1px solid #30363d;border-radius:6px;padding:10px;font-family:monospace;font-size:11px">' +
+            '<div><span style="color:#8b949e">[13:02:04]</span> <span style="color:#f85149">POST /admin</span> \u2014 seccomp bypass initiated</div>' +
+            '<div style="margin-top:4px"><span style="color:#8b949e">[13:02:05]</span> <span style="color:#f85149">POST /admin</span> \u2014 admin privileges escalated</div>' +
+            '<div style="margin-top:4px"><span style="color:#8b949e">[13:02:06]</span> <span style="color:#f85149">GET /api/users</span> \u2014 user list exfiltrated</div>' +
+            '<div style="margin-top:4px"><span style="color:#8b949e">[13:02:07]</span> <span style="color:#f85149">GET /api/secrets</span> \u2014 secrets dumped</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  } else if (key === 'user_auth') {
+    html = '<div style="background:#0d1117;border:1px solid #30363d;border-radius:8px;overflow:hidden">' +
+      '<div style="background:#1c2128;padding:10px 14px;border-bottom:1px solid #30363d;display:flex;align-items:center;gap:8px">' +
+        '<span style="font-size:16px">\uD83D\uDC64</span>' +
+        '<span style="font-weight:600;font-size:13px">User Authentication Portal</span>' +
+        '<span style="margin-left:auto;background:#f85149;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px">COMPROMISED</span>' +
+      '</div>' +
+      '<div style="padding:14px">' +
+        '<div style="background:#f8514911;border:1px solid #f8514944;border-radius:6px;padding:8px 10px;margin-bottom:12px;display:flex;align-items:center;gap:6px">' +
+          '<span style="font-size:14px">\u26A0\uFE0F</span>' +
+          '<span style="font-size:11px;color:#f85149;font-weight:600">ARP Cache Poisoning MITM Attack Detected \u2014 traffic intercepted by attacker 172.21.0.x</span>' +
+        '</div>' +
+        '<div style="margin-bottom:12px">' +
+          '<div style="font-size:11px;color:#8b949e;margin-bottom:4px">INTERCEPTED LOGIN CREDENTIALS</div>' +
+          '<div style="background:#1c2128;border:1px solid #f8514944;border-radius:6px;padding:10px;font-family:monospace;font-size:12px">' +
+            '<div style="display:flex;justify-content:space-between;padding:3px 0"><span style="color:#8b949e">Username:</span><span style="color:#f85149;font-weight:600">admin</span></div>' +
+            '<div style="display:flex;justify-content:space-between;padding:3px 0"><span style="color:#8b949e">Password:</span><span style="color:#f85149;font-weight:600">P@ssw0rd!</span></div>' +
+            '<div style="display:flex;justify-content:space-between;padding:3px 0"><span style="color:#8b949e">Session Cookie:</span><span style="color:#f85149">session=abc123; Secure; HttpOnly</span></div>' +
+          '</div>' +
+        '</div>' +
+        '<div style="margin-bottom:12px">' +
+          '<div style="font-size:11px;color:#8b949e;margin-bottom:4px">DECODED JWT TOKEN (CAPTURED)</div>' +
+          '<div style="background:#1c2128;border:1px solid #30363d;border-radius:6px;padding:10px;font-family:monospace;font-size:11px">' +
+            '<div style="color:#8b949e">Header: {"alg":"HS256","typ":"JWT"}</div>' +
+            '<div style="margin-top:3px;color:#f85149;font-weight:600">Payload: {"user":"admin","role":"admin","iat":...}</div>' +
+            '<div style="margin-top:3px;color:#8b949e">Signature: [VALID]</div>' +
+          '</div>' +
+        '</div>' +
+        '<div>' +
+          '<div style="font-size:11px;color:#8b949e;margin-bottom:4px">NETWORK MITM STATUS</div>' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
+            '<div style="background:#1c2128;border:1px solid #f8514944;border-radius:6px;padding:8px;text-align:center">' +
+              '<div style="font-size:10px;color:#8b949e">ARP Cache</div><div style="color:#f85149;font-weight:600;font-size:12px;margin-top:2px">POISONED</div>' +
+            '</div>' +
+            '<div style="background:#1c2128;border:1px solid #f8514944;border-radius:6px;padding:8px;text-align:center">' +
+              '<div style="font-size:10px;color:#8b949e">Traffic Route</div><div style="color:#f85149;font-weight:600;font-size:12px;margin-top:2px">Hijacked</div>' +
+            '</div>' +
+            '<div style="background:#1c2128;border:1px solid #f8514944;border-radius:6px;padding:8px;text-align:center">' +
+              '<div style="font-size:10px;color:#8b949e">2FA Status</div><div style="color:#f85149;font-weight:600;font-size:12px;margin-top:2px">BYPASSED</div>' +
+            '</div>' +
+            '<div style="background:#1c2128;border:1px solid #f8514944;border-radius:6px;padding:8px;text-align:center">' +
+              '<div style="font-size:10px;color:#8b949e">Attacker IP</div><div style="color:#f85149;font-weight:600;font-size:12px;margin-top:2px">172.21.0.x</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  } else if (key === 'internal_api') {
+    html = '<div style="background:#0d1117;border:1px solid #30363d;border-radius:8px;overflow:hidden">' +
+      '<div style="background:#1c2128;padding:10px 14px;border-bottom:1px solid #30363d;display:flex;align-items:center;gap:8px">' +
+        '<span style="font-size:16px">\uD83D\uDD0C</span>' +
+        '<span style="font-weight:600;font-size:13px">Internal REST API v2.1</span>' +
+        '<span style="margin-left:auto;background:#f85149;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px">COMPROMISED</span>' +
+      '</div>' +
+      '<div style="padding:14px">' +
+        '<div style="margin-bottom:12px">' +
+          '<div style="font-size:11px;color:#8b949e;margin-bottom:4px">EXPOSED ENDPOINTS (eBPF rootkit active)</div>' +
+          '<div style="background:#1c2128;border:1px solid #30363d;border-radius:6px;overflow:hidden">' +
+            '<div style="display:flex;padding:8px 10px;border-bottom:1px solid #21262d;align-items:center">' +
+              '<span style="background:#3fb95022;color:#3fb950;font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px;margin-right:8px">GET</span>' +
+              '<span style="font-family:monospace;font-size:12px">/api/users</span>' +
+              '<span style="margin-left:auto;font-size:10px;background:#f85149;color:#fff;padding:1px 6px;border-radius:3px">LEAKED</span>' +
+            '</div>' +
+            '<div style="display:flex;padding:8px 10px;border-bottom:1px solid #21262d;align-items:center">' +
+              '<span style="background:#3fb95022;color:#3fb950;font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px;margin-right:8px">GET</span>' +
+              '<span style="font-family:monospace;font-size:12px">/api/secrets</span>' +
+              '<span style="margin-left:auto;font-size:10px;background:#f85149;color:#fff;padding:1px 6px;border-radius:3px">LEAKED</span>' +
+            '</div>' +
+            '<div style="display:flex;padding:8px 10px;border-bottom:1px solid #21262d;align-items:center">' +
+              '<span style="background:#d2992222;color:#d29922;font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px;margin-right:8px">POST</span>' +
+              '<span style="font-family:monospace;font-size:12px">/api/config</span>' +
+              '<span style="margin-left:auto;font-size:10px;background:#f85149;color:#fff;padding:1px 6px;border-radius:3px">LEAKED</span>' +
+            '</div>' +
+            '<div style="display:flex;padding:8px 10px;align-items:center">' +
+              '<span style="background:#3fb95022;color:#3fb950;font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px;margin-right:8px">GET</span>' +
+              '<span style="font-family:monospace;font-size:12px">/api/logs</span>' +
+              '<span style="margin-left:auto;font-size:10px;background:#f85149;color:#fff;padding:1px 6px;border-radius:3px">LEAKED</span>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div style="margin-bottom:12px">' +
+          '<div style="font-size:11px;color:#8b949e;margin-bottom:4px">SYSCALLS HOOKED BY ROOTKIT</div>' +
+          '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
+            '<span style="background:#f8514922;border:1px solid #f8514944;color:#f85149;font-size:10px;font-weight:600;padding:3px 8px;border-radius:4px;font-family:monospace">open()</span>' +
+            '<span style="background:#f8514922;border:1px solid #f8514944;color:#f85149;font-size:10px;font-weight:600;padding:3px 8px;border-radius:4px;font-family:monospace">read()</span>' +
+            '<span style="background:#f8514922;border:1px solid #f8514944;color:#f85149;font-size:10px;font-weight:600;padding:3px 8px;border-radius:4px;font-family:monospace">write()</span>' +
+            '<span style="background:#f8514922;border:1px solid #f8514944;color:#f85149;font-size:10px;font-weight:600;padding:3px 8px;border-radius:4px;font-family:monospace">connect()</span>' +
+          '</div>' +
+        '</div>' +
+        '<div>' +
+          '<div style="font-size:11px;color:#8b949e;margin-bottom:4px">PERSISTENCE MECHANISM</div>' +
+          '<div style="background:#1c2128;border:1px solid #f8514944;border-radius:6px;padding:10px;font-family:monospace;font-size:11px">' +
+            '<div><span style="color:#8b949e">File:</span> <span style="color:#f85149">/etc/ld.so.preload</span></div>' +
+            '<div style="margin-top:4px"><span style="color:#8b949e">Content:</span> <span style="color:#f85149">/tmp/rootkit.so</span></div>' +
+            '<div style="margin-top:4px;color:#8b949e">Rootkit survives container restarts via library preloading</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  } else if (key === 'file_upload') {
+    html = '<div style="background:#0d1117;border:1px solid #30363d;border-radius:8px;overflow:hidden">' +
+      '<div style="background:#1c2128;padding:10px 14px;border-bottom:1px solid #30363d;display:flex;align-items:center;gap:8px">' +
+        '<span style="font-size:16px">\uD83D\uDCC1</span>' +
+        '<span style="font-weight:600;font-size:13px">Secure File Upload Portal</span>' +
+        '<span style="margin-left:auto;background:#f85149;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px">COMPROMISED</span>' +
+      '</div>' +
+      '<div style="padding:14px">' +
+        '<div style="margin-bottom:12px">' +
+          '<div style="font-size:11px;color:#8b949e;margin-bottom:4px">UPLOADED FILE \u2014 CORRUPTED BY USERFAULTFD RACE</div>' +
+          '<div style="background:#1c2128;border:1px solid #f8514944;border-radius:8px;padding:12px">' +
+            '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">' +
+              '<span style="font-size:24px">\uD83D\uDCC4</span>' +
+              '<div><div style="font-weight:600;font-size:13px">app.py</div><div style="font-size:11px;color:#8b949e">main application file</div></div>' +
+              '<span style="margin-left:auto;background:#f85149;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px">TAMPERED</span>' +
+            '</div>' +
+            '<div style="background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:10px">' +
+              '<div style="display:flex;justify-content:space-between;font-family:monospace;font-size:11px;padding:3px 0">' +
+                '<span style="color:#3fb950">Original SHA256:</span>' +
+                '<span style="color:#8b949e;font-size:10px">a1b2c3d4e5f67890abcdef1234567890abcdef1234567890abcdef1234567890</span>' +
+              '</div>' +
+              '<div style="display:flex;justify-content:space-between;font-family:monospace;font-size:11px;padding:3px 0">' +
+                '<span style="color:#f85149">Modified SHA256:</span>' +
+                '<span style="color:#f85149;font-size:10px">ff00ee11dd22cc33bb44aa556677889900aabbccddeeff00112233445566778899</span>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div style="margin-bottom:12px">' +
+          '<div style="font-size:11px;color:#8b949e;margin-bottom:4px">INJECTED MALICIOUS PAYLOAD</div>' +
+          '<div style="background:#1c2128;border:1px solid #f8514944;border-radius:6px;padding:10px;font-family:monospace;font-size:11px;color:#f85149">' +
+            'os.system("rm -rf /tmp/isolated_data")' +
+          '</div>' +
+        '</div>' +
+        '<div>' +
+          '<div style="font-size:11px;color:#8b949e;margin-bottom:4px">INTEGRITY CHECK STATUS</div>' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
+            '<div style="background:#1c2128;border:1px solid #f8514944;border-radius:6px;padding:8px;text-align:center">' +
+              '<div style="font-size:10px;color:#8b949e">Virus Scan</div><div style="color:#f85149;font-weight:600;font-size:12px;margin-top:2px">BYPASSED</div>' +
+            '</div>' +
+            '<div style="background:#1c2128;border:1px solid #f8514944;border-radius:6px;padding:8px;text-align:center">' +
+              '<div style="font-size:10px;color:#8b949e">Hash Verify</div><div style="color:#f85149;font-weight:600;font-size:12px;margin-top:2px">FAILED</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  } else if (key === 'system') {
+    html = '<div style="background:#0d1117;border:1px solid #30363d;border-radius:8px;overflow:hidden">' +
+      '<div style="background:#1c2128;padding:10px 14px;border-bottom:1px solid #30363d;display:flex;align-items:center;gap:8px">' +
+        '<span style="font-size:16px">\uD83D\uDCBB</span>' +
+        '<span style="font-weight:600;font-size:13px">System Health Dashboard</span>' +
+        '<span style="margin-left:auto;background:#f85149;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px">COMPROMISED</span>' +
+      '</div>' +
+      '<div style="padding:14px">' +
+        '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:12px">' +
+          '<div style="background:#f8514911;border:1px solid #f85149;border-radius:6px;padding:6px;text-align:center">' +
+            '<div style="font-size:8px;color:#8b949e">DB</div><div style="font-size:10px;color:#f85149;font-weight:600">\u2716</div>' +
+          '</div>' +
+          '<div style="background:#f8514911;border:1px solid #f85149;border-radius:6px;padding:6px;text-align:center">' +
+            '<div style="font-size:8px;color:#8b949e">Admin</div><div style="font-size:10px;color:#f85149;font-weight:600">\u2716</div>' +
+          '</div>' +
+          '<div style="background:#f8514911;border:1px solid #f85149;border-radius:6px;padding:6px;text-align:center">' +
+            '<div style="font-size:8px;color:#8b949e">Auth</div><div style="font-size:10px;color:#f85149;font-weight:600">\u2716</div>' +
+          '</div>' +
+          '<div style="background:#f8514911;border:1px solid #f85149;border-radius:6px;padding:6px;text-align:center">' +
+            '<div style="font-size:8px;color:#8b949e">API</div><div style="font-size:10px;color:#f85149;font-weight:600">\u2716</div>' +
+          '</div>' +
+          '<div style="background:#f8514911;border:1px solid #f85149;border-radius:6px;padding:6px;text-align:center">' +
+            '<div style="font-size:8px;color:#8b949e">Upload</div><div style="font-size:10px;color:#f85149;font-weight:600">\u2716</div>' +
+          '</div>' +
+        '</div>' +
+        '<div style="margin-bottom:12px">' +
+          '<div style="font-size:11px;color:#8b949e;margin-bottom:4px">COMPROMISE SUMMARY</div>' +
+          '<div style="background:#1c2128;border:1px solid #f8514944;border-radius:6px;padding:10px;font-size:12px">' +
+            '<div style="display:flex;justify-content:space-between;padding:4px 0"><span style="color:#8b949e">Container Isolation:</span><span style="color:#f85149;font-weight:600">BROKEN \u2014 Host FS accessible</span></div>' +
+            '<div style="display:flex;justify-content:space-between;padding:4px 0"><span style="color:#8b949e">Kernel Integrity:</span><span style="color:#f85149;font-weight:600">ROOTKIT LOADED \u2014 eBPF hooked</span></div>' +
+            '<div style="display:flex;justify-content:space-between;padding:4px 0"><span style="color:#8b949e">Persistence:</span><span style="color:#f85149;font-weight:600">ACTIVE \u2014 Survives reboots</span></div>' +
+            '<div style="display:flex;justify-content:space-between;padding:4px 0"><span style="color:#8b949e">Data at Risk:</span><span style="color:#f85149;font-weight:600">DB creds, JWT, API keys, source</span></div>' +
+          '</div>' +
+        '</div>' +
+        '<div>' +
+          '<div style="font-size:11px;color:#8b949e;margin-bottom:4px">ATTACK CHAIN</div>' +
+          '<div style="background:#1c2128;border:1px solid #30363d;border-radius:6px;padding:10px;font-family:monospace;font-size:11px">' +
+            '<div><span style="color:#f85149">\u2776 Cgroup Escape</span> <span style="color:#8b949e">\u2192 Container isolation broken</span></div>' +
+            '<div style="margin-top:3px"><span style="color:#f85149">\u2777 io_uring Bypass</span> <span style="color:#8b949e">\u2192 Seccomp disabled, admin access</span></div>' +
+            '<div style="margin-top:3px"><span style="color:#f85149">\u2778 ARP Spoof</span> <span style="color:#8b949e">\u2192 Login traffic intercepted</span></div>' +
+            '<div style="margin-top:3px"><span style="color:#f85149">\u2779 eBPF Rootkit</span> <span style="color:#8b949e">\u2192 Syscalls hooked, data leak</span></div>' +
+            '<div style="margin-top:3px"><span style="color:#f85149">\u277a Userfaultfd Race</span> <span style="color:#8b949e">\u2192 Source files corrupted</span></div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }
+  return html;
+}
+
 function closeModal(e) {
   if (e && e.target !== e.currentTarget) return;
   document.getElementById('modal-overlay').classList.remove('open');
+  openModalKey = null;
 }
+
+function updateOpenModal() {
+  if (!openModalKey) return;
+  var overlay = document.getElementById('modal-overlay');
+  if (!overlay.classList.contains('open')) { openModalKey = null; return; }
+  var c = currentComponents && currentComponents[openModalKey];
+  if (!c) { closeModal(); return; }
+  var title = document.getElementById('modal-title');
+  title.innerHTML = safe(c.icon || '') + ' ' + safe(c.name);
+  document.getElementById('modal-body').innerHTML = getModalHtml(openModalKey);
+}
+
 function renderTimeline(timeline) {
   var body = document.getElementById('feed-body');
   var count = document.getElementById('feed-count');
   if (!timeline || timeline.length === 0) {
-    body.innerHTML = '<div class="feed-empty" id="feed-empty">' +
-      '<div class="big">&#x1F4AD;</div><div>No attacks detected</div>' +
-      '<div style="font-size:12px;margin-top:6px">Run the pipeline to see live attack impact on the application</div></div>';
+    knownTimelineCount = 0;
+    var emptyEl = document.getElementById('feed-empty');
+    if (!emptyEl) {
+      body.innerHTML = '<div class="feed-empty" id="feed-empty">' +
+        '<div class="big">&#x1F4AD;</div><div>No attacks detected</div>' +
+        '<div style="font-size:12px;margin-top:6px">Run the pipeline to see live attack impact on the application</div></div>';
+    }
     count.textContent = '0 events';
     return;
   }
   count.textContent = timeline.length + ' event' + (timeline.length > 1 ? 's' : '');
-  var html = '';
-  for (var i = 0; i < timeline.length; i++) {
-    var e = timeline[i];
-    var isNew = i === timeline.length - 1 ? 'new-feed' : '';
-    html += '<div class="feed-item ' + isNew + '">' +
-      '<span class="feed-time">' + safe(e.time) + '</span>' +
+  if (timeline.length <= knownTimelineCount) return;
+  var newItems = timeline.slice(knownTimelineCount);
+  knownTimelineCount = timeline.length;
+  var emptyEl = document.getElementById('feed-empty');
+  if (emptyEl) emptyEl.remove();
+  for (var i = 0; i < newItems.length; i++) {
+    var e = newItems[i];
+    var div = document.createElement('div');
+    div.className = 'feed-item';
+    div.innerHTML = '<span class="feed-time">' + safe(e.time) + '</span>' +
       '<span class="feed-phase ' + safe(e.phase) + '">' + safe(e.phase) + '</span>' +
       '<span class="feed-comp">' + safe(e.component) + '</span>' +
-      '<span class="feed-msg">' + safe(e.message) + '</span>' +
-    '</div>';
+      '<span class="feed-msg">' + safe(e.message) + '</span>';
+    (function(el, idx) {
+      setTimeout(function() {
+        body.appendChild(el);
+        body.scrollTop = body.scrollHeight;
+      }, idx * 800);
+    })(div, i);
   }
-  body.innerHTML = html;
-  body.scrollTop = body.scrollHeight;
 }
 function renderStats(data) {
   var reqs = data.requests || [];
@@ -457,39 +973,48 @@ function renderStats(data) {
     '<div class="stat-card"><h3>Probes / Verification</h3><div class="value probe">' + probes + '</div></div>' +
     '<div class="stat-card"><h3>Attacks Detected</h3><div class="value" style="color:' + (attacks > 0 ? '#f85149' : '#8b949e') + '">' + attacks + '</div></div>';
 }
+var knownLogCount = 0;
 function renderLog(requests) {
   var tbody = document.getElementById('log-body');
   if (!requests || requests.length === 0) {
+    knownLogCount = 0;
     tbody.innerHTML = '<tr><td colspan="6" class="empty-state"><div class="big">&#x1F4AD;</div>Waiting for incoming attack traffic...</td></tr>';
     return;
   }
-  var html = '';
-  for (var i = requests.length - 1; i >= 0; i--) {
-    var r = requests[i];
+  if (requests.length <= knownLogCount) return;
+  var newReqs = requests.slice(knownLogCount);
+  knownLogCount = requests.length;
+  var emptyEl = tbody.querySelector('.empty-state');
+  if (emptyEl) tbody.innerHTML = '';
+  for (var i = newReqs.length - 1; i >= 0; i--) {
+    var r = newReqs[i];
     var ctx = r.attack_context;
     var isAttack = !!ctx;
-    var rowClass = isAttack ? 'attack-row' : '';
-    var cls = (i === requests.length - 1) ? 'new-row' : '';
     var tag = isAttack ? '<span class="tag attack">attack</span>' : '<span class="tag normal">normal</span>';
     var statusClass = r.status >= 200 && r.status < 300 ? 'status-2xx' : 'status-5xx';
+    var tr = document.createElement('tr');
+    if (isAttack) tr.className = 'attack-row new-row';
+    else tr.className = 'new-row';
     if (!isAttack) {
-      html += '<tr class="' + cls + '"><td>' + safe(r.time) + '</td><td><span class="method-' + r.method + '">' + r.method + '</span></td><td class="path">' + safe(r.path) + ' ' + tag + '</td><td class="' + statusClass + '">' + r.status + '</td><td style="color:#8b949e;font-size:11px">Regular traffic</td><td style="color:#8b949e;font-size:11px">-</td></tr>';
+      tr.innerHTML = '<td>' + safe(r.time) + '</td><td><span class="method-' + r.method + '">' + r.method + '</span></td><td class="path">' + safe(r.path) + ' ' + tag + '</td><td class="' + statusClass + '">' + r.status + '</td><td style="color:#8b949e;font-size:11px">Regular traffic</td><td style="color:#8b949e;font-size:11px">-</td>';
     } else {
       var cveTag = ctx.cve && ctx.cve !== 'N/A' ? '<span class="tag cve">' + safe(ctx.cve) + '</span>' : '';
       var mitreTag = ctx.mitre && ctx.mitre !== 'N/A' ? '<span class="tag mitre">' + safe(ctx.mitre) + '</span>' : '';
       var phaseClass = ctx.phase === 'exploitation' ? 'exploit' : ctx.phase === 'pre-exploit probe' ? 'probe' : 'verify';
       var phaseLabel = ctx.phase === 'exploitation' ? 'EXPLOIT' : ctx.phase === 'pre-exploit probe' ? 'PROBE' : 'VERIFY';
-      html += '<tr class="' + rowClass + ' ' + cls + '">' +
-        '<td>' + safe(r.time) + '</td>' +
+      tr.innerHTML = '<td>' + safe(r.time) + '</td>' +
         '<td><span class="method-' + r.method + '">' + r.method + '</span></td>' +
         '<td class="path">' + safe(r.path) + ' ' + tag + '</td>' +
         '<td class="' + statusClass + '">' + r.status + '</td>' +
         '<td><div class="attack-name">' + safe(ctx.attack || '') + '</div><div style="margin-top:2px">' + cveTag + ' ' + mitreTag + '</div></td>' +
-        '<td><span class="tag ' + phaseClass + '">' + phaseLabel + '</span><div class="impact-text" style="margin-top:3px">' + safe(ctx.detail || ctx.impact || '') + '</div></td>' +
-      '</tr>';
+        '<td><span class="tag ' + phaseClass + '">' + phaseLabel + '</span><div class="impact-text" style="margin-top:3px">' + safe(ctx.detail || ctx.impact || '') + '</div></td>';
     }
+    (function(el) {
+      setTimeout(function() {
+        tbody.insertBefore(el, tbody.firstChild);
+      }, (newReqs.length - 1 - i) * 600);
+    })(tr, i);
   }
-  tbody.innerHTML = html;
 }
 function renderHeader(components) {
   var el = document.getElementById('header-status');

@@ -102,24 +102,25 @@ flowchart TB
 
 ## Prerequisites
 
-You need only a computer with **Git** installed. Everything else is handled by the setup below.
+This lab requires **real syscall monitoring** by Falco, which needs kernel-level access. Docker Desktop (Windows/macOS) runs containers in a lightweight VM that **does not** support Falco's kernel driver or eBPF probe. You must run this on a **Linux host** with full kernel access.
 
-### Windows
-1. Install [Git for Windows](https://git-scm.com/download/win)
-2. Install [Docker Desktop for Windows](https://docs.docker.com/desktop/install/windows-install/)
-   - During installation, ensure **"Use WSL 2 instead of Hyper-V"** is checked
-   - After install, open Docker Desktop and wait for the engine to start (whale icon in system tray stops animating)
-3. Install [WSL 2](https://learn.microsoft.com/en-us/windows/wsl/install) (if not already installed):
-   ```powershell
-   wsl --install
+### Recommended: Ubuntu VM (Windows/macOS users)
+
+If you're on Windows or macOS, create an Ubuntu VM using VirtualBox, VMware, or any hypervisor:
+
+1. Download **Ubuntu 22.04 LTS** ISO from https://releases.ubuntu.com/jammy/
+2. Create a new VM in VirtualBox with at least **4GB RAM** and **20GB disk**
+3. Install Ubuntu inside the VM
+4. Inside the VM, install dependencies:
+   ```bash
+   sudo apt update
+   sudo apt install -y git curl
+   curl -fsSL https://get.docker.com | sudo sh
+   sudo usermod -aG docker $USER
+   # Log out and back in for group changes to take effect
    ```
-   Restart your computer after this completes.
 
-### macOS
-1. Install [Git](https://git-scm.com/download/mac) or run `xcode-select --install`
-2. Install [Docker Desktop for Mac](https://docs.docker.com/desktop/install/mac-install/)
-
-### Linux (Ubuntu/Debian)
+### Linux (Native Ubuntu/Debian)
 ```bash
 sudo apt update
 sudo apt install -y git curl
@@ -136,7 +137,7 @@ Follow these steps **in order**. Every step is required.
 
 ### Step 1: Clone the Repository
 
-Open a terminal (Command Prompt on Windows, Terminal on Mac/Linux) and run:
+Open a terminal inside your Ubuntu VM and run:
 
 ```bash
 git clone https://github.com/ritvikindupuri/falcosecurity.git
@@ -148,10 +149,6 @@ cd falcosecurity
 Create a `.env` file in the project root by copying the template:
 
 ```bash
-# On Windows (PowerShell):
-Copy-Item .env.example .env
-
-# On Mac/Linux:
 cp .env.example .env
 ```
 
@@ -177,13 +174,11 @@ Now open `.env` in a text editor and **replace `your-claude-api-key-here`** with
 
 ### Step 3: Start the Lab
 
+> **Platform note:** This must run on a **Linux host** (native or Ubuntu VM). Docker Desktop on Windows/macOS does not support Falco's kernel-level syscall monitoring. See [Prerequisites](#prerequisites) above.
+
 Run the startup script to build all Docker images and start the dashboard:
 
 ```bash
-# On Windows (PowerShell):
-.\run.sh
-
-# On Mac/Linux:
 ./run.sh
 ```
 
@@ -222,8 +217,12 @@ Open http://localhost:8090 during step 2 to watch the attack impact live.
 > | 5 — BPF Rootkit | Kernel-level persistence | **Internal API** card → `COMPROMISED` (red), timeline: "DATA EXFILTRATED" |
 > | 6 — Userfaultfd (CVE-2022-2588) | Memory corruption race condition | **File Upload** card → `COMPROMISED` (red), timeline: "FILES CORRUPTED" |
 >
-> Each attack has three phases (PROBE → EXPLOIT → VERIFY) visible in the **Attack Timeline** feed. Service cards transition from green (OK) → yellow (probing) → red (compromised). The header banner flips from "OPERATIONAL" to "UNDER ATTACK" to "COMPROMISED".
-> **Click any red (compromised) service card** to open a modal showing the exact data the attacker stole from that component — database credentials, admin session tokens, intercepted JWT tokens, exfiltrated API data, corrupted file hashes, and the exploit method used.
+> Each attack has three phases (PROBE → EXPLOIT → VERIFY) visible in the **Attack Timeline** feed. Service cards transition from green (OK) → yellow (probing) → red (compromised), one at a time with staggered animations. The header banner flips from "OPERATIONAL" to "UNDER ATTACK" to "COMPROMISED".
+>
+> **Service Card Modals:**
+> - **Click any card at any time** — green cards show the healthy service UI (connection panels, security posture, login form, API explorer, etc.)
+> - **Click a red (compromised) card** — opens a modal showing the actual service interface with compromised elements highlighted in red (exposed credentials, stolen tokens, corrupted files, hooked syscalls) plus the exploit method used
+> - **Leave a modal open during the pipeline** — it updates in real-time as the card transitions: you'll see the healthy UI → probing message → compromised UI with stolen data, all without closing and reopening
 
 > **Note:** Before and between pipeline runs, all services are empty:
 > - **Target App** (port 8090) — shows all-green service cards with "No attacks detected"
@@ -262,11 +261,12 @@ You should see the **FalcoHive** dashboard with:
 
     > **About the Target App:** This is a live **mock enterprise application** ("TargetCorp Internal Portal") that visually demonstrates how each attack compromises different parts of the system. Open http://localhost:8090 to see:
     > - **6 Service Cards** — Database Config, Admin Portal, User Login, Internal API, File Upload, System Health
-    > - **Real-time color transitions** — green (OK) → yellow (probing) → red (compromised)
-    > - **Click any compromised (red) card** — opens a modal showing exactly what data the attacker stole (credentials, tokens, API keys, file hashes, etc.)
-    > - **Attack Timeline feed** — scrolling log of every PROBE/EXPLOIT/VERIFY event with detailed impact descriptions
+    > - **Real-time color transitions** — green (OK) → yellow (probing) → red (compromised), updating one card at a time with staggered animations
+    > - **Click ANY card** — green cards show the healthy service UI; red cards show the compromised UI with stolen data highlighted
+    > - **Modals update in real-time** — leave a modal open during attacks and watch it transition from healthy → probing → compromised
+    > - **Attack Timeline feed** — scrolling log of every PROBE/EXPLOIT/VERIFY event appearing one by one in real-time
     > - **Dynamic header banner** — switches from "OPERATIONAL" to "UNDER ATTACK" to "COMPROMISED"
-    > - **Detailed request table** — shows every HTTP request with CVE/MITRE tags and phase badges
+    > - **Detailed request table** — shows every HTTP request with CVE/MITRE tags and phase badges, new rows slide in individually
     >
     > **API Endpoints (what the attacker targets):**
    > | Endpoint | Method | Purpose |
