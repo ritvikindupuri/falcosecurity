@@ -177,7 +177,11 @@ Now open `.env` in a text editor and **replace `your-claude-api-key-here`** with
 
 ### Step 3: Start the Lab
 
-Run the startup script:
+The startup script supports **two modes** — choose the one that fits what you want to do:
+
+---
+
+#### Mode A — Standard Mode (No AI, No Claude API Key Needed)
 
 ```bash
 # On Windows (PowerShell):
@@ -187,7 +191,7 @@ Run the startup script:
 ./run.sh
 ```
 
-**What this does (detailed breakdown):**
+**What this does:**
 1. Builds all Docker images (target app, attacker, AI agent)
 2. Starts Elasticsearch, Kibana, Falco, Falcosidekick, Falcosidekick UI, Redis, Postgres, target app, and the AI agent
 3. Waits for Elasticsearch to become healthy (green/yellow status)
@@ -195,6 +199,51 @@ Run the startup script:
 5. Waits for the AI Agent to be responsive
 6. Runs the attacker container (executes 6 attack scenarios)
 7. Outputs URLs for the dashboard and services
+
+**Key points:**
+- **Zero Claude API usage** — no API key needed, no AI calls made
+- All 6 attacks run automatically and hit the target app live
+- Falco detects each attack and sends events to Elasticsearch
+- Open http://localhost:8090 during the attack run to watch each attack hit the target app in **real-time** (auto-refreshes every 1.5 seconds)
+- After attacks finish, explore the Falco events in the dashboard at http://localhost:3000
+
+#### Mode B — AI Mode (Claude-Powered Orchestration)
+
+```bash
+./run.sh ai
+```
+
+**What this does (same infra setup + AI pipeline):**
+1. Same infrastructure setup as Mode A (steps 1-5)
+2. Triggers the Claude-powered orchestration pipeline via `POST /api/orchestrate`
+3. Claude AI orchestrates the full pipeline:
+   - `setup_infrastructure` — checks/starts all services
+   - `launch_attacks` — runs all 6 attack scenarios
+   - `wait_for_falco_events` — polls Elasticsearch for detections
+   - `analyze_events` — runs each event through Claude for CVE/MITRE mapping and risk scoring
+   - `get_analysis_results` / `execute_remediation` — reviews and fixes findings
+4. Watch the pipeline progress live at http://localhost:3000
+
+**Key points:**
+- **Claude API is required** — set `CLAUDE_API_KEY` in `.env`
+- You can also trigger the same pipeline by clicking **"Run Full Pipeline"** on the dashboard
+- During the attack phase, open http://localhost:8090 to see the live attack feed
+
+---
+
+> **Live Attack Feed on the Target App:**
+> When the attacker runs (in either mode), open http://localhost:8090 in your browser. The page auto-refreshes every 1.5 seconds and shows **every request the attacker makes in real-time:**
+>
+> | Attack | What it does | Seen on Target App |
+> |--------|-------------|-------------------|
+> | 1 — Cgroup Escape (CVE-2022-0492) | Steals credentials via container escape | `GET /config` → **200** with red **attack** tag |
+> | 2 — OverlayFS Tamper (CVE-2021-31433) | Hides malicious files | `GET /internal` → **200** with red **attack** tag |
+> | 3 — io_uring Bypass (CVE-2022-25362) | Privilege escalation via seccomp bypass | `POST /admin` → **200** with red **attack** tag |
+> | 4 — ARP Spoof | MITM credential interception | `POST /login` → **200** with red **attack** tag |
+> | 5 — BPF Rootkit | Kernel-level persistence | `POST /api/internal` → **200** with red **attack** tag |
+> | 6 — Userfaultfd (CVE-2022-2588) | Memory corruption race condition | `POST /upload` → **200** with red **attack** tag |
+>
+> Each row is color-coded: green = GET, yellow = POST, red "attack" tag = sensitive endpoint being targeted. New requests flash yellow as they arrive.
 
 **First run takes 5-10 minutes** as it downloads Docker images (Elasticsearch, Falco, etc.) and builds custom images. Subsequent runs are faster.
 
