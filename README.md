@@ -217,7 +217,7 @@ The startup script supports **two modes** — choose the one that fits what you 
 1. Same infrastructure setup as Mode A (steps 1-5)
 2. Triggers the Claude-powered orchestration pipeline via `POST /api/orchestrate`
 3. Claude AI orchestrates the full pipeline:
-   - `setup_infrastructure` — checks/starts all services
+   - `setup_infrastructure` — checks all services (Falco etc. must already be running from host)
    - `launch_attacks` — runs all 6 attack scenarios
    - `wait_for_falco_events` — polls Elasticsearch for detections
    - `analyze_events` — runs each event through Claude for CVE/MITRE mapping and risk scoring
@@ -226,7 +226,7 @@ The startup script supports **two modes** — choose the one that fits what you 
 
 **Key points:**
 - **Claude API is required** — set `CLAUDE_API_KEY` in `.env`
-- You can also trigger the same pipeline by clicking **"Run Full Pipeline"** on the dashboard
+- You can also trigger the same pipeline by clicking **"Run Full Pipeline"** on the dashboard after running `./run.sh` from the host first
 - During the attack phase, open http://localhost:8090 to see the live attack impact on the visual enterprise app dashboard
 
 ---
@@ -245,6 +245,12 @@ The startup script supports **two modes** — choose the one that fits what you 
 >
 > Each attack has three phases (PROBE → EXPLOIT → VERIFY) visible in the **Attack Timeline** feed. Service cards transition from green (OK) → yellow (probing) → red (compromised). The header banner flips from "OPERATIONAL" to "UNDER ATTACK" to "COMPROMISED".
 
+> **Important — Order of Operations:**
+> 1. **First**, run `./run.sh` from the **host terminal** — this starts Falco and all infrastructure using correct host filesystem paths
+> 2. **Then**, click **"Run Full Pipeline"** on the dashboard to trigger the AI orchestration
+>
+> Falco, Falcosidekick, and Filebeat require host bind mounts (`./falco/falco.yaml`, etc.) and **cannot** be started from inside the ai-agent container. They must be started from the host via `./run.sh` or `docker compose up -d`. The AI pipeline's `setup_infrastructure` step only starts services that don't need host bind mounts (Elasticsearch, Kibana, Redis, etc.).
+
 > **Note:** Before and between pipeline runs, all services are empty:
 > - **Target App** (port 8090) — shows all-green service cards with "No attacks detected"
 > - **Falco** — running but has no attack events to detect
@@ -257,6 +263,8 @@ The startup script supports **two modes** — choose the one that fits what you 
 > 3. Resets the **Dashboard** — hides all stats, events, and analysis cards
 >
 > Then the pipeline begins fresh: attacker runs → Falco detects → events land in clean ES → target app populates in real-time. This ensures you see the complete lifecycle from a true zero-data state every time.
+>
+> **No synthetic or mock Falco events** are ever generated. All security events come from real Falco syscall detections only.
 >
 > **First run takes 5-10 minutes** as it downloads Docker images (Elasticsearch, Falco, etc.) and builds custom images. Subsequent runs are faster.
 
