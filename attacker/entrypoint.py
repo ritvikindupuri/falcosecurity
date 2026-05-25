@@ -146,12 +146,6 @@ def main():
 
     log.info("=" * 70)
     log.info("  ALL 6 ATTACKS COMPLETED")
-    log.info("  Sending synthetic Falco events to Sidekick...")
-    log.info("=" * 70)
-    from attacks.event_generator import send_events
-    send_events()
-
-    log.info("=" * 70)
     log.info("  PIPELINE COMPLETE")
     log.info("  Check dashboard: http://localhost:3000")
     log.info("  Check Kibana:    http://localhost:5601")

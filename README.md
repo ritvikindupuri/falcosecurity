@@ -615,8 +615,7 @@ falcosecurity/
 │       ├── iouring_bypass.py     # CVE-2022-25362 - io_uring seccomp bypass
 │       ├── arp_spoof.py          # ARP cache poisoning MITM
 │       ├── bpf_rootkit.py        # eBPF rootkit load attempt
-│       ├── userfaultfd_exploit.py# CVE-2022-2588 - Userfaultfd race condition
-│       └── event_generator.py    # Synthetic Falco event generator
+│       └── userfaultfd_exploit.py# CVE-2022-2588 - Userfaultfd race condition
 │
 ├── target/                       # Vulnerable Target Application
 │   ├── Dockerfile
