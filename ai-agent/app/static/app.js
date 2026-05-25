@@ -239,6 +239,13 @@ async function startPipeline() {
   document.getElementById("orchestration-logs").innerHTML = "";
 
   try {
+    await fetch("http://localhost:8090/api/reset", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+    addOrchestrationLog("system", "Target app state cleared", "info");
+  } catch (e) {
+    addOrchestrationLog("system", `Could not reset target app: ${e.message}`, "error");
+  }
+
+  try {
     const data = await getJSON(API.orchestrate, {
       method: "POST",
       body: JSON.stringify({ goal: "Set up the full container security lab: start all infrastructure, launch all attacks, detect them with Falco, analyze with AI, and report results." })
