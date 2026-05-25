@@ -37,9 +37,7 @@ services:
       - /var/run/docker.sock:/host/var/run/docker.sock
       - /proc:/host/proc:ro
       - /etc:/host/etc:ro
-    environment:
-      - SKIP_DRIVER_LOADER=true
-    command: ["falco", "--nodriver", "-c", "/etc/falco/falco.yaml"]
+    command: ["falco", "--modern-bpf", "-c", "/etc/falco/falco.yaml"]
     networks:
       - unique-net
     restart: unless-stopped

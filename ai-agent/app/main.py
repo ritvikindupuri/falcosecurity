@@ -56,9 +56,12 @@ orchestration_sessions: dict[str, dict] = {}
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     for idx in [ANALYSIS_INDEX, REMEDIATION_INDEX, ORCHESTRATION_INDEX]:
-        if not es.indices.exists(index=idx):
-            es.indices.create(index=idx)
-            log.info(f"Created index: {idx}")
+        try:
+            if not es.indices.exists(index=idx):
+                es.indices.create(index=idx)
+                log.info(f"Created index: {idx}")
+        except Exception as e:
+            log.warning(f"Could not ensure index {idx} exists (ES may not be ready yet): {e}")
     yield
 
 app = FastAPI(title="FalcoHive", lifespan=lifespan)
