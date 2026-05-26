@@ -10,7 +10,7 @@ FalcoHive is an autonomous container security laboratory that combines **Falco**
 
 ```mermaid
 flowchart TB
-    subgraph Dashboard["FalcoHive Dashboard (port 3000)"]
+    subgraph Dashboard["FalcoHive Dashboard (port 3001)"]
         UI[Web UI - Pipeline Orchestration]
     end
 
@@ -102,7 +102,7 @@ flowchart TB
 
 ## Prerequisites
 
-> **⚠️ CRITICAL: You must run this on a Linux host (Ubuntu 22.04).** Docker Desktop on Windows/macOS cannot run Falco's kernel-level syscall monitoring. You have two options:
+> **⚠️ CRITICAL: You must run this on a Linux host (Ubuntu 22.04) with kernel 5.19+ and BTF support.** Docker Desktop on Windows/macOS cannot run Falco's kernel-level syscall monitoring. WSL2's custom kernel also lacks required BPF features. You have two options:
 
 ### Option A: Ubuntu VM (VirtualBox) — Recommended for Windows
 
@@ -157,19 +157,35 @@ cat > .env << 'EOF'
 COMPOSE_PROJECT_NAME=falcohive-lab
 ELASTIC_VERSION=8.11.0
 FALCO_VERSION=0.36.1
-FALCOSIDEKITCH_VERSION=2.28.0
+FALCOSIDEKICK_VERSION=2.28.0
 CLAUDE_API_KEY=sk-ant-your-api-key-here
 CLAUDE_MODEL=claude-sonnet-4-20250514
+AI_AGENT_PORT=3001
 EOF
 ```
 
+Give the script execute permission and build all images:
+
 ```bash
+chmod +x run.sh
 ./run.sh
 ```
 
-Wait for **"Dashboard ready"** (the output will show the actual port), then open that URL in your browser and click **Run Full Pipeline**.
+Wait for **"Dashboard ready"** (the output will show the actual port), then open that URL in your browser.
 
-> ⏱ **First run takes 5-10 minutes** — it downloads Elasticsearch, Falco, and other Docker images. Subsequent runs are much faster.
+> **If using VirtualBox NAT mode:** Set up port forwarding (Settings → Network → Advanced → Port Forwarding) to forward host port 3001 to guest port 3001, otherwise the dashboard won't be reachable from your browser.
+
+> **Before clicking "Run Full Pipeline"** on the dashboard, first pull all Docker images in a separate terminal (this takes 5-10 minutes):
+> ```bash
+> cd ~/falcosecurity && docker compose pull
+> ```
+> Then start all services:
+> ```bash
+> docker compose up -d
+> ```
+> Verify everything is running with `docker ps`. Once all services show `Up`, go back to the dashboard and click **Run Full Pipeline**.
+
+> ⏱ **Subsequent runs are faster** — images are cached locally.
 
 ---
 
@@ -204,6 +220,7 @@ cp .env.example .env
 > FALCOSIDEKICK_VERSION=2.28.0
 > CLAUDE_API_KEY=your-claude-api-key-here
 > CLAUDE_MODEL=claude-sonnet-4-20250514
+> AI_AGENT_PORT=3001
 > ```
 
 Now open `.env` in a text editor and **replace `your-claude-api-key-here`** with your actual Anthropic Claude API key.
@@ -218,9 +235,17 @@ Now open `.env` in a text editor and **replace `your-claude-api-key-here`** with
 
 ### Step 3: Start the Lab
 
-Run the startup script to build all Docker images and start the dashboard:
+First, verify your kernel supports Falco's modern BPF probe:
 
 ```bash
+uname -r
+# Should be 5.19 or higher
+```
+
+Now make the script executable and build all Docker images:
+
+```bash
+chmod +x run.sh
 ./run.sh
 ```
 
@@ -269,7 +294,7 @@ Open http://localhost:8090 during step 2 to watch the attack impact live.
 > **Note:** Before and between pipeline runs, all services are empty:
 > - **Target App** (port 8090) — shows all-green service cards with "No attacks detected"
 > - **Elasticsearch / Kibana** — zero security events indexed
-> - **Dashboard** (port 3000) — only shows "Run Full Pipeline" and "Clear Session" buttons
+> - **Dashboard** (port 3001) — only shows "Run Full Pipeline" and "Clear Session" buttons
 >
 > Clicking **"Run Full Pipeline"** (or the "Clear Session" button) automatically wipes everything:
 > 1. Resets the **Target App** — cards revert to green, timeline clears
@@ -601,7 +626,7 @@ When you first open the UI, you see:
 
 The Falco UI is complementary to the FalcoHive dashboard:
 - Use **Falco UI (port 2802)** for raw, real-time event monitoring
-- Use **FalcoHive Dashboard (port 3000)** for AI-powered analysis, risk scoring, CVE/MITRE mapping, and remediation
+- Use **FalcoHive Dashboard (port 3001)** for AI-powered analysis, risk scoring, CVE/MITRE mapping, and remediation
 
 ---
 
@@ -700,7 +725,7 @@ docker compose up attacker
 ```
 
 ### Port conflicts
-If ports 3000, 5601, 9200, 8090 are in use, edit the `ports:` section in `docker-compose.yml` to change host-side mappings.
+If ports 3001, 5601, 9200, 8090 are in use, edit the `ports:` section in `docker-compose.yml` to change host-side mappings.
 
 ### "address already in use" when starting the dashboard
 The ai-agent dashboard defaults to port **3001** (configurable via `AI_AGENT_PORT` in `.env`). If that port is also in use, change it in `.env`:
@@ -711,6 +736,14 @@ Then rerun `./run.sh`. To find what's currently using a port on WSL/Windows:
 ```bash
 sudo apt install -y net-tools && sudo netstat -tlnp | grep :3001
 ```
+
+---
+
+## Technical Documentation
+
+For a comprehensive deep-dive covering the complete system architecture, multi-agent pipeline flow, every API endpoint, attack scenario implementation, data schemas, and security considerations, see:
+
+- **[TECHNICAL_DOCUMENTATION.md](./TECHNICAL_DOCUMENTATION.md)** — 14-section technical reference with rendered architecture diagrams, flow-by-flow descriptions, and detailed feature/component documentation.
 
 ---
 
