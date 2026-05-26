@@ -1,12 +1,7 @@
 # FalcoHive — Technical Documentation
 
-## Executive Summary
-
-FalcoHive is an AI-powered container security attack laboratory that orchestrates a complete security workflow: infrastructure provisioning, real attack execution, runtime syscall detection via Falco, AI-driven analysis through Claude, and automated remediation. The system simulates six distinct container security attack scenarios against a mock enterprise application ("TargetCorp Internal Portal"), detects them using Falco's kernel-level monitoring (modern BPF probe on supported kernels), enriches them with Claude AI for CVE/MITRE ATT&CK mapping and risk scoring, and provides one-click remediation execution.
-
-The platform is structured as a multi-agent AI orchestration layer (Python/FastAPI) that controls a Docker Compose-based infrastructure stack including Elasticsearch, Kibana, Redis, PostgreSQL, Falco, Falcosidekick, Filebeat, a target application, and an attacker container. A single-click "Run Full Pipeline" button on the dashboard triggers the entire workflow: the Claude-powered Orchestrator Agent plans and delegates tasks to five sub-agents (Infra, Attack, Monitor, Analysis, Remediation) via function calling, executing up to 30 sequential tool calls to complete the pipeline.
-
-The target application provides real-time visual feedback — six service cards transition from green (healthy) to yellow (probing) to red (compromised) with staggered animations as each attack progresses, with clickable modals showing both healthy UIs and compromised interfaces with stolen data highlighted. The system targets Ubuntu Linux VMs with Falco's modern BPF probe for real syscall detection, with all events, analyses, remediations, and orchestration logs persisted in Elasticsearch for exploration through Kibana.
+**Date:** May 25, 2026
+**Author:** Ritvik Indupuru
 
 ---
 
@@ -75,6 +70,13 @@ The target application provides real-time visual feedback — six service cards 
 
 ---
 
+## Executive Summary
+
+FalcoHive is an AI-powered container security attack laboratory that orchestrates a complete security workflow: infrastructure provisioning, real attack execution, runtime syscall detection via Falco, AI-driven analysis through Claude, and automated remediation. The system simulates six distinct container security attack scenarios against a mock enterprise application ("TargetCorp Internal Portal"), detects them using Falco's kernel-level monitoring (modern BPF probe on supported kernels), enriches them with Claude AI for CVE/MITRE ATT&CK mapping and risk scoring, and provides one-click remediation execution.
+
+The platform is structured as a multi-agent AI orchestration layer (Python/FastAPI) that controls a Docker Compose-based infrastructure stack including Elasticsearch, Kibana, Redis, PostgreSQL, Falco, Falcosidekick, Filebeat, a target application, and an attacker container. A single-click "Run Full Pipeline" button on the dashboard triggers the entire workflow: the Claude-powered Orchestrator Agent plans and delegates tasks to five sub-agents (Infra, Attack, Monitor, Analysis, Remediation) via function calling, executing up to 30 sequential tool calls to complete the pipeline.
+
+The target application provides real-time visual feedback — six service cards transition from green (healthy) to yellow (probing) to red (compromised) with staggered animations as each attack progresses, with clickable modals showing both healthy UIs and compromised interfaces with stolen data highlighted. The system targets Ubuntu Linux VMs with Falco's modern BPF probe for real syscall detection, with all events, analyses, remediations, and orchestration logs persisted in Elasticsearch for exploration through Kibana.
 ## 1. System Architecture
 
 ### 1.1 Architecture Diagram
