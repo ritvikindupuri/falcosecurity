@@ -1,7 +1,7 @@
 # FalcoHive — Technical Documentation
 
 **Date:** May 25, 2026
-**Author:** Ritvik Indupuru
+**Author:** Ritvik Indupuri
 
 ---
 
