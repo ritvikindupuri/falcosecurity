@@ -2,7 +2,9 @@
 
 **AI-Powered Container Security Attack Lab & Orchestration Platform**
 
-FalcoHive is an autonomous container security laboratory that combines **Falco** (runtime security), **Elasticsearch**, and **Claude AI** to create a complete security attack-detection-analysis-remediation pipeline. It simulates real container security attacks, detects them with Falco, analyzes the findings with Claude AI (CVE/MITRE mapping, risk scoring), and provides actionable remediation steps — all controllable from a single dashboard.
+FalcoHive is an autonomous container security laboratory that orchestrates a complete security workflow — infrastructure provisioning, real container attack execution, kernel-level syscall detection via Falco, AI-driven CVE/MITRE mapping and risk analysis through Claude Sonnet 4, and automated remediation — all controllable from a single dashboard with real-time visual feedback.
+
+The system runs six distinct attack scenarios (Cgroup Escape, OverlayFS Tamper, io_uring Bypass, ARP Spoof, BPF Rootkit, Userfaultfd) against a mock enterprise application, detects every syscall with Falco's `--modern-bpf` probe, and coordinates the entire pipeline through a multi-agent AI architecture: a Claude-powered Orchestrator Agent delegates tasks to five specialized sub-agents (Infra, Attack, Monitor, Analysis, Remediation) via function calling in a conversational loop. Every event, analysis, remediation, and orchestration log is persisted in Elasticsearch for exploration through Kibana, with a live target application dashboard showing attack impact through animated service card transitions, real-time timeline feeds, and clickable modals that update dynamically as attacks progress.
 
 ---
 
